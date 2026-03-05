@@ -1,55 +1,12 @@
 #![allow(non_snake_case)]
 
 mod input;
+mod output;
 
-use kornia::io::png::read_image_png_mono8;
-use nalgebra as na;
 use rerun::external::glam;
-use rerun::RecordingStream;
 use std::fs::File;
 use std::path::Path;
 use std::{env, fs};
-
-fn convert_to_rerun(transform: &nalgebra::Isometry3<f64>) -> rerun::Transform3D {
-    let t = transform.translation.vector;
-    let q = transform.rotation.quaternion().coords;
-
-    rerun::Transform3D::from_translation_rotation(
-        [t.x as f32, t.y as f32, t.z as f32],
-        rerun::Quaternion::from_xyzw([q.x as f32, q.y as f32, q.z as f32, q.w as f32]),
-    )
-}
-
-fn point_to_rerun(vector: &na::Point3<f64>) -> glam::Vec3 {
-    glam::Vec3::new(vector.x as f32, vector.y as f32, vector.z as f32)
-}
-
-fn add_images(rec: &RecordingStream, entity: &str, directory: &Path) {
-    let items = fs::read_dir(directory).unwrap();
-    for path in items {
-        if let Ok(entry) = path {
-            let path = entry.path();
-            rec.set_timestamp_nanos_since_epoch(
-                "global_time",
-                path.file_stem()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .parse::<i64>()
-                    .unwrap(),
-            );
-            let image = read_image_png_mono8(path).unwrap();
-            rec.log(
-                entity,
-                &rerun::Image::from_elements(
-                    image.as_slice(),
-                    image.size().into(),
-                    rerun::ColorModel::L,
-                ),
-            ).unwrap();
-        }
-    }
-}
 
 fn color_by_z(points: &[nalgebra::Point3<f64>]) -> Vec<rerun::Color> {
     // let z_min = points.iter().map(|p| p.z).fold(f64::INFINITY, f64::min);
@@ -118,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (time, T_word_cam) in &poses {
         rec.set_timestamp_nanos_since_epoch("global_time", *time);
         let T_world_imu = T_word_cam * static_transforms.T_cam_imu;
-        rec.log("world/car", &convert_to_rerun(&T_world_imu))?;
+        rec.log("world/car", &output::isometry_to_rerun(&T_world_imu))?;
     }
 
     let key_frames = {
@@ -150,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let colors = color_by_z(&world_points);
     let points = world_points
         .iter()
-        .map(|point| point_to_rerun(point))
+        .map(|point| output::point_to_rerun(point))
         .collect::<Vec<_>>();
 
     rec.log_static(
@@ -164,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         rec.set_timestamp_nanos_since_epoch("global_time", keyframe.timestamp);
         let points = keyframe.points_cam
             .iter()
-            .map(|point| point_to_rerun(point))
+            .map(|point| output::point_to_rerun(point))
             .collect::<Vec<_>>();
         rec.log(
             "world/car/cam/point_cloud",
@@ -177,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let intrinsics = &key_frames.first().unwrap().intrinsics;
     rec.log_static(
         "world/car/cam",
-        &convert_to_rerun(&static_transforms.T_cam_imu.inverse()),
+        &output::isometry_to_rerun(&static_transforms.T_cam_imu.inverse()),
     )?;
     rec.log_static(
         "world/car/cam",
@@ -188,7 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_principal_point([intrinsics.cx as f32, intrinsics.cy as f32])
         .with_image_plane_distance(2.0),
     )?;
-    add_images(
+    output::add_images(
         &rec,
         "world/car/cam",
         &path.join("undistorted_images").join("cam0"),
