@@ -16,6 +16,13 @@ pub struct Transforms {
     pub T_gnss_imu: nalgebra::Isometry3<f64>,
 }
 
+pub struct KeyFrame {
+    pub timestamp: i64,
+    pub intrinsics: CamIntrinsics,
+    pub T_world_cam: nalgebra::Isometry3<f64>,
+    pub points_cam: Vec<nalgebra::Point3<f64>>,
+}
+
 pub fn parse_transform(items: &[&str]) -> nalgebra::Isometry3<f64> {
     let translation = nalgebra::Translation3::new(
         items[0].parse().unwrap(),
@@ -39,11 +46,11 @@ pub fn read_transforms(path: &Path) -> Result<Transforms, std::io::Error> {
     let lines = content.lines().collect::<Vec<_>>();
     Ok(Transforms {
         T_cam_imu: parse_transform(&lines[4].split(",").collect::<Vec<_>>()),
-        T_gnss_imu:parse_transform(&lines[10].split(",").collect::<Vec<_>>()),
+        T_gnss_imu: parse_transform(&lines[10].split(",").collect::<Vec<_>>()),
     })
 }
 
-pub fn parse_poses(file: &File) -> Vec<(i64, nalgebra::Isometry3<f64>)> {
+pub fn read_poses(file: &File) -> Vec<(i64, nalgebra::Isometry3<f64>)> {
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
     lines.next();
@@ -60,14 +67,7 @@ pub fn parse_poses(file: &File) -> Vec<(i64, nalgebra::Isometry3<f64>)> {
     result
 }
 
-pub fn parse_keyframes(
-    file: File,
-) -> (
-    i64,
-    CamIntrinsics,
-    nalgebra::Isometry3<f64>,
-    Vec<nalgebra::Point3<f64>>,
-) {
+pub fn read_keyframes(file: File) -> KeyFrame {
     let content = {
         let mut file = file;
         let mut content = String::new();
@@ -133,5 +133,10 @@ pub fn parse_keyframes(
         points
     };
 
-    (timestamp, intrinsics, T_world_cam, points_cam)
+    KeyFrame {
+        timestamp,
+        intrinsics,
+        T_world_cam,
+        points_cam,
+    }
 }

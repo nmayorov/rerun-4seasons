@@ -90,7 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let path = Path::new(&args[1]);
 
-    let poses = input::parse_poses(&File::open(path.join("GNSSPoses.txt"))?);
+    let poses = input::read_poses(&File::open(path.join("GNSSPoses.txt"))?);
     let static_transforms = input::read_transforms(&path.join("Transformations.txt"))?;
 
     let rec =
@@ -121,25 +121,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         rec.log("world/car", &convert_to_rerun(&T_world_imu))?;
     }
 
-    let point_cloud = {
-        let mut point_cloud = Vec::new();
+    let key_frames = {
+        let mut key_frames = Vec::new();
         let keyframe_path = path.join("KeyFrameData");
         let paths = fs::read_dir(keyframe_path)?;
         for path in paths {
             if let Ok(entry) = path {
                 let file = File::open(entry.path())?;
-                point_cloud.push(input::parse_keyframes(file));
+                key_frames.push(input::read_keyframes(file));
             }
         }
-        point_cloud
+        key_frames
     };
 
-    let world_points: Vec<_> = point_cloud
+    let world_points: Vec<_> = key_frames
         .iter()
-        .map(|(_, _, T_world_cam, points)| {
+        .map(|keyframe| {
             let mut world_points = Vec::new();
-            for point in points {
-                world_points.push(T_world_cam * point);
+            for point in &keyframe.points_cam {
+                world_points.push(keyframe.T_world_cam * point);
             }
             world_points
         })
@@ -160,9 +160,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_radii([0.2]),
     )?;
 
-    for (timestamp, _, _, points) in &point_cloud {
-        rec.set_timestamp_nanos_since_epoch("global_time", *timestamp);
-        let points = points
+    for keyframe in &key_frames {
+        rec.set_timestamp_nanos_since_epoch("global_time", keyframe.timestamp);
+        let points = keyframe.points_cam
             .iter()
             .map(|point| point_to_rerun(point))
             .collect::<Vec<_>>();
@@ -174,7 +174,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
     }
 
-    let intrinsics = &point_cloud.first().unwrap().1;
+    let intrinsics = &key_frames.first().unwrap().intrinsics;
     rec.log_static(
         "world/car/cam",
         &convert_to_rerun(&static_transforms.T_cam_imu.inverse()),
