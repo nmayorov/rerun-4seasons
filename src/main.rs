@@ -1,43 +1,14 @@
+#![allow(non_snake_case)]
+
+mod input;
+
 use kornia::io::png::read_image_png_mono8;
 use nalgebra as na;
-use rerun::RecordingStream;
 use rerun::external::glam;
-use std::fs::{File, read_to_string};
-use std::io::{BufRead, BufReader, Read};
+use rerun::RecordingStream;
+use std::fs::File;
 use std::path::Path;
 use std::{env, fs};
-
-struct Transforms {
-    T_cam_imu: nalgebra::Isometry3<f64>,
-    T_gnss_imu: nalgebra::Isometry3<f64>,
-}
-
-struct CamIntrinsics {
-    fx: f64,
-    fy: f64,
-    cx: f64,
-    cy: f64,
-    width: f64,
-    height: f64,
-}
-
-fn parse_transform(items: &[&str]) -> nalgebra::Isometry3<f64> {
-    let translation = nalgebra::Translation3::new(
-        items[0].parse().unwrap(),
-        items[1].parse().unwrap(),
-        items[2].parse().unwrap(),
-    );
-    let rotation = nalgebra::Quaternion::new(
-        items[6].parse().unwrap(),
-        items[3].parse().unwrap(),
-        items[4].parse().unwrap(),
-        items[5].parse().unwrap(),
-    );
-    nalgebra::Isometry3::from_parts(
-        translation,
-        nalgebra::UnitQuaternion::from_quaternion(rotation),
-    )
-}
 
 fn convert_to_rerun(transform: &nalgebra::Isometry3<f64>) -> rerun::Transform3D {
     let t = transform.translation.vector;
@@ -53,35 +24,9 @@ fn point_to_rerun(vector: &na::Point3<f64>) -> glam::Vec3 {
     glam::Vec3::new(vector.x as f32, vector.y as f32, vector.z as f32)
 }
 
-fn parse_poses(file: &File) -> Vec<(i64, nalgebra::Isometry3<f64>)> {
-    let reader = BufReader::new(file);
-    let mut lines = reader.lines();
-    lines.next();
-
-    let mut result = Vec::new();
-    for line in lines {
-        if let Ok(line) = line {
-            let items = line.split(",").collect::<Vec<_>>();
-            let transform = parse_transform(&items[1..8]);
-            result.push((items[0].parse::<i64>().unwrap(), transform));
-        }
-    }
-
-    result
-}
-
-fn parse_transforms(path: &Path) -> Result<Transforms, std::io::Error> {
-    let content = read_to_string(path)?;
-    let lines = content.lines().collect::<Vec<_>>();
-    Ok(Transforms {
-        T_cam_imu: parse_transform(&lines[4].split(",").collect::<Vec<_>>()),
-        T_gnss_imu: parse_transform(&lines[10].split(",").collect::<Vec<_>>()),
-    })
-}
-
 fn add_images(rec: &RecordingStream, entity: &str, directory: &Path) {
-    let itesm = fs::read_dir(directory).unwrap();
-    for path in itesm {
+    let items = fs::read_dir(directory).unwrap();
+    for path in items {
         if let Ok(entry) = path {
             let path = entry.path();
             rec.set_timestamp_nanos_since_epoch(
@@ -101,78 +46,9 @@ fn add_images(rec: &RecordingStream, entity: &str, directory: &Path) {
                     image.size().into(),
                     rerun::ColorModel::L,
                 ),
-            );
+            ).unwrap();
         }
     }
-}
-
-fn parse_keyframes(file: File) -> (i64, CamIntrinsics, na::Isometry3<f64>, Vec<na::Point3<f64>>) {
-    let content = {
-        let mut file = file;
-        let mut content = String::new();
-        file.read_to_string(&mut content);
-        content
-    };
-    let lines = content.lines().collect::<Vec<_>>();
-
-    let timestamp = {
-        let index = lines
-            .iter()
-            .position(|line| line == &"# timestamp")
-            .unwrap()
-            + 1;
-        lines[index].parse::<i64>().unwrap()
-    };
-
-    let intrinsics = {
-        let index = lines
-            .iter()
-            .position(|line| line == &"# fx, fy, cx, cy, width, height, npoints")
-            .unwrap()
-            + 1;
-        let items = lines[index].split(",").collect::<Vec<_>>();
-        CamIntrinsics {
-            fx: items[0].parse().unwrap(),
-            fy: items[1].parse().unwrap(),
-            cx: items[2].parse().unwrap(),
-            cy: items[3].parse().unwrap(),
-            width: items[4].parse().unwrap(),
-            height: items[5].parse().unwrap(),
-        }
-    };
-
-    let T_world_cam = {
-        let index = lines
-            .iter()
-            .position(|line| line == &"# camToWorld: translation vector, rotation quaternion")
-            .unwrap()
-            + 1;
-        let items = lines[index].split(",").collect::<Vec<_>>();
-        parse_transform(&items)
-    };
-
-    let points_cam = {
-        let start = lines
-            .iter()
-            .position(|line| line == &"# Point Cloud Data : ")
-            .unwrap()
-            + 3;
-        let mut points = Vec::new();
-        for &line in lines[start..].iter().step_by(2) {
-            let items = line.split(",").collect::<Vec<_>>();
-            let u = items[0].parse::<f64>().unwrap();
-            let v = items[1].parse::<f64>().unwrap();
-            let inv_depth = items[2].parse::<f64>().unwrap();
-            points.push(na::Point3::new(
-                (u - intrinsics.cx) / (intrinsics.fx * inv_depth),
-                (v - intrinsics.cy) / (intrinsics.fy * inv_depth),
-                1.0 / inv_depth,
-            ));
-        }
-        points
-    };
-
-    (timestamp, intrinsics, T_world_cam, points_cam)
 }
 
 fn color_by_z(points: &[nalgebra::Point3<f64>]) -> Vec<rerun::Color> {
@@ -214,8 +90,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let path = Path::new(&args[1]);
 
-    let poses = parse_poses(&File::open(path.join("GNSSPoses.txt"))?);
-    let static_transforms = parse_transforms(&path.join("Transformations.txt")).unwrap();
+    let poses = input::parse_poses(&File::open(path.join("GNSSPoses.txt"))?);
+    let static_transforms = input::read_transforms(&path.join("Transformations.txt"))?;
 
     let rec =
         rerun::RecordingStreamBuilder::new("4seasons_visualization.rrd").save("result.rrd")?;
@@ -248,11 +124,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let point_cloud = {
         let mut point_cloud = Vec::new();
         let keyframe_path = path.join("KeyFrameData");
-        let paths = fs::read_dir(keyframe_path).unwrap();
+        let paths = fs::read_dir(keyframe_path)?;
         for path in paths {
             if let Ok(entry) = path {
                 let file = File::open(entry.path())?;
-                point_cloud.push(parse_keyframes(file));
+                point_cloud.push(input::parse_keyframes(file));
             }
         }
         point_cloud
@@ -260,7 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let world_points: Vec<_> = point_cloud
         .iter()
-        .map(|(timestamp, _, T_world_cam, points)| {
+        .map(|(_, _, T_world_cam, points)| {
             let mut world_points = Vec::new();
             for point in points {
                 world_points.push(T_world_cam * point);
@@ -295,7 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &rerun::Points3D::new(points)
                 .with_radii([0.2])
                 .with_colors([rerun::Color::from_rgb(255, 255, 0)]),
-        );
+        )?;
     }
 
     let intrinsics = &point_cloud.first().unwrap().1;
@@ -310,8 +186,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             [intrinsics.width as f32, intrinsics.height as f32],
         )
         .with_principal_point([intrinsics.cx as f32, intrinsics.cy as f32])
-        .with_image_plane_distance(2.0  ),
-    );
+        .with_image_plane_distance(2.0),
+    )?;
     add_images(
         &rec,
         "world/car/cam",
