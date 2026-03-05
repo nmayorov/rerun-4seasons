@@ -44,21 +44,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         key_frames
     };
 
-    let world_points: Vec<_> = key_frames
+    let point_cloud_world: Vec<_> = key_frames
         .iter()
-        .map(|keyframe| {
-            let mut world_points = Vec::new();
-            for point in &keyframe.points_cam {
-                world_points.push(keyframe.T_world_cam * point);
-            }
-            world_points
-        })
+        .map(|keyframe| keyframe.points_world.clone())
         .flatten()
         .step_by(15)
         .collect();
 
-    let colors = style::color_by_z(&world_points);
-    let points = world_points
+    let colors = style::color_by_z(&point_cloud_world);
+    let points = point_cloud_world
         .iter()
         .map(|point| output::point_to_rerun(point))
         .collect::<Vec<_>>();
@@ -67,22 +61,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "world/point_cloud",
         &rerun::Points3D::new(points)
             .with_colors(colors)
-            .with_radii([0.2]),
+            .with_radii([0.1]),
     )?;
 
     for keyframe in &key_frames {
         rec.set_timestamp_nanos_since_epoch("global_time", keyframe.timestamp);
         let points = keyframe
-            .points_cam
+            .pixel_coords
             .iter()
-            .map(|point| output::point_to_rerun(point))
+            .map(|coordinates| {
+                rerun::external::glam::Vec2::new(coordinates.x as f32, coordinates.y as f32)
+            })
             .collect::<Vec<_>>();
-        rec.log(
-            "world/car/cam/point_cloud",
-            &rerun::Points3D::new(points)
-                .with_radii([0.2])
-                .with_colors([rerun::Color::from_rgb(255, 255, 0)]),
-        )?;
+        rec.log("world/car/cam/key_points", &rerun::Points2D::new(points))?;
     }
 
     let intrinsics = &key_frames.first().unwrap().intrinsics;

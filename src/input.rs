@@ -19,8 +19,8 @@ pub struct Transforms {
 pub struct KeyFrame {
     pub timestamp: i64,
     pub intrinsics: CamIntrinsics,
-    pub T_world_cam: nalgebra::Isometry3<f64>,
-    pub points_cam: Vec<nalgebra::Point3<f64>>,
+    pub pixel_coords: Vec<nalgebra::Vector3<f64>>,
+    pub points_world: Vec<nalgebra::Point3<f64>>,
 }
 
 pub fn parse_transform(items: &[&str]) -> nalgebra::Isometry3<f64> {
@@ -112,31 +112,35 @@ pub fn read_keyframes(file: File) -> KeyFrame {
         parse_transform(&items)
     };
 
-    let points_cam = {
+    let (pixel_coords, points_world) = {
         let start = lines
             .iter()
             .position(|line| line == &"# Point Cloud Data : ")
             .unwrap()
             + 3;
-        let mut points = Vec::new();
+        let mut pixel_coords = Vec::new();
+        let mut points_world = Vec::new();
         for &line in lines[start..].iter().step_by(2) {
             let items = line.split(",").collect::<Vec<_>>();
             let u = items[0].parse::<f64>().unwrap();
             let v = items[1].parse::<f64>().unwrap();
             let inv_depth = items[2].parse::<f64>().unwrap();
-            points.push(nalgebra::Point3::new(
+            pixel_coords.push(nalgebra::Vector3::new(u, v, inv_depth));
+
+            let point_cam = nalgebra::Point3::new(
                 (u - intrinsics.cx) / (intrinsics.fx * inv_depth),
                 (v - intrinsics.cy) / (intrinsics.fy * inv_depth),
                 1.0 / inv_depth,
-            ));
+            );
+            points_world.push(T_world_cam * point_cam);
         }
-        points
+        (pixel_coords, points_world)
     };
 
     KeyFrame {
         timestamp,
         intrinsics,
-        T_world_cam,
-        points_cam,
+        pixel_coords,
+        points_world,
     }
 }
