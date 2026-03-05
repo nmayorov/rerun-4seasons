@@ -19,6 +19,7 @@ pub struct Transforms {
 pub struct KeyFrame {
     pub timestamp: i64,
     pub intrinsics: CamIntrinsics,
+    pub T_world_cam: nalgebra::Isometry3<f64>,
     pub pixel_coords: Vec<nalgebra::Vector3<f64>>,
     pub points_world: Vec<nalgebra::Point3<f64>>,
 }
@@ -140,6 +141,7 @@ pub fn read_keyframes(file: File) -> KeyFrame {
     KeyFrame {
         timestamp,
         intrinsics,
+        T_world_cam,
         pixel_coords,
         points_world,
     }
