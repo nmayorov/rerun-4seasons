@@ -124,13 +124,13 @@ pub fn read_keyframes(file: File) -> KeyFrame {
             let items = line.split(",").collect::<Vec<_>>();
             let u = items[0].parse::<f64>().unwrap();
             let v = items[1].parse::<f64>().unwrap();
-            let inv_depth = items[2].parse::<f64>().unwrap();
-            pixel_coords.push(nalgebra::Vector3::new(u, v, inv_depth));
+            let depth = 1.0 / items[2].parse::<f64>().unwrap();
+            pixel_coords.push(nalgebra::Vector3::new(u, v, depth));
 
             let point_cam = nalgebra::Point3::new(
-                (u - intrinsics.cx) / (intrinsics.fx * inv_depth),
-                (v - intrinsics.cy) / (intrinsics.fy * inv_depth),
-                1.0 / inv_depth,
+                (u - intrinsics.cx) * depth / intrinsics.fx,
+                (v - intrinsics.cy) * depth / intrinsics.fy,
+                depth,
             );
             points_world.push(T_world_cam * point_cam);
         }

@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .step_by(15)
         .collect();
 
-    let colors = style::color_by_z(&point_cloud_world);
+    let colors = style::color_range(point_cloud_world.iter().map(|point| point.z), -3.0, 30.0);
     let points = point_cloud_world
         .iter()
         .map(|point| output::point_to_rerun(point))
@@ -61,11 +61,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "world/point_cloud",
         &rerun::Points3D::new(points)
             .with_colors(colors)
-            .with_radii([0.1]),
+            .with_radii([0.05]),
     )?;
 
     for keyframe in &key_frames {
         rec.set_timestamp_nanos_since_epoch("global_time", keyframe.timestamp);
+        let colors =
+            style::color_range(keyframe.pixel_coords.iter().map(|point| point.z), 1.0, 50.0);
         let points = keyframe
             .pixel_coords
             .iter()
@@ -73,7 +75,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 rerun::external::glam::Vec2::new(coordinates.x as f32, coordinates.y as f32)
             })
             .collect::<Vec<_>>();
-        rec.log("world/car/cam/key_points", &rerun::Points2D::new(points))?;
+        rec.log(
+            "world/car/cam/key_points",
+            &rerun::Points2D::new(points)
+                .with_radii([2.0])
+                .with_colors(colors),
+        )?;
     }
 
     let intrinsics = &key_frames.first().unwrap().intrinsics;

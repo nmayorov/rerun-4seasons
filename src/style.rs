@@ -1,17 +1,13 @@
-pub fn color_by_z(points: &[nalgebra::Point3<f64>]) -> Vec<rerun::Color> {
-    let z_min = 0.0;
-    let z_max = 30.0;
-
-    points
-        .iter()
-        .map(|p| {
-            let t = ((p.z - z_min) / (z_max - z_min)) as f32;
-            create_color_turbo_color_map(t)
+pub fn color_range(values: impl Iterator<Item = f64>, min: f64, max: f64) -> Vec<rerun::Color> {
+    values
+        .map(|x| {
+            let t = (x - min) / (max - min);
+            select_color_turbo(t as f32)
         })
         .collect()
 }
 
-fn create_color_turbo_color_map(t: f32) -> rerun::Color {
+fn select_color_turbo(t: f32) -> rerun::Color {
     let r = (34.61
         + t * (1172.33 - t * (10793.56 - t * (33300.12 - t * (38394.49 - t * 14825.05)))))
         .clamp(0.0, 255.0) as u8;
