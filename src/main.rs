@@ -23,7 +23,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|(_, isometry)| output::point_to_rerun(&isometry.translation.vector.into()))
         .collect::<Vec<_>>();
 
-    rec.log_static("world/trajectory", &rerun::LineStrips3D::new([trajectory]))?;
+    rec.log_static(
+        "world/trajectory",
+        &rerun::Points3D::new(trajectory)
+            .with_radii([0.01])
+            .with_colors([rerun::Color::WHITE]),
+    )?;
 
     for (time, T_word_cam) in &poses {
         rec.set_timestamp_nanos_since_epoch("global_time", *time);
