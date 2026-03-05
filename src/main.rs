@@ -106,7 +106,7 @@ fn add_images(rec: &RecordingStream, entity: &str, directory: &Path) {
     }
 }
 
-fn parse_keyframes(file: File) -> (i64, na::Isometry3<f64>, Vec<na::Point3<f64>>) {
+fn parse_keyframes(file: File) -> (i64, CamIntrinsics, na::Isometry3<f64>, Vec<na::Point3<f64>>) {
     let content = {
         let mut file = file;
         let mut content = String::new();
@@ -172,7 +172,7 @@ fn parse_keyframes(file: File) -> (i64, na::Isometry3<f64>, Vec<na::Point3<f64>>
         points
     };
 
-    (timestamp, T_world_cam, points_cam)
+    (timestamp, intrinsics, T_world_cam, points_cam)
 }
 
 fn color_by_z(points: &[nalgebra::Point3<f64>]) -> Vec<rerun::Color> {
@@ -217,7 +217,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let poses = parse_poses(&File::open(path.join("GNSSPoses.txt"))?);
     let static_transforms = parse_transforms(&path.join("Transformations.txt")).unwrap();
 
-    let rec = rerun::RecordingStreamBuilder::new("4seasons_visualization.rrd").save("result.rrd")?;
+    let rec =
+        rerun::RecordingStreamBuilder::new("4seasons_visualization.rrd").save("result.rrd")?;
     let trajectory = poses
         .iter()
         .map(|(_, isometry)| {
@@ -229,24 +230,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .collect::<Vec<_>>();
 
-    rec.log_static(
-        "world/trajectory",
-        &rerun::Points3D::new(trajectory)
-            .with_colors([rerun::Color::WHITE])
-            .with_radii([0.2]),
-    )?;
-    rec.log_static(
-        "world/car/cam",
-        &convert_to_rerun(&static_transforms.T_cam_imu.inverse()),
-    )?;
+    rec.log_static("world/trajectory", &rerun::LineStrips3D::new([trajectory]))?;
 
     rec.set_timestamp_nanos_since_epoch("global_time", poses[0].0);
-    rec.log(
-        "world/car",
-        &rerun::Boxes3D::from_half_sizes([(2.0, 4.0, 1.0)])
-            .with_radii([0.2])
-            .with_colors([rerun::Color::WHITE]),
-    )?;
+    // rec.log(
+    //     "world/car",
+    //     &rerun::Boxes3D::from_half_sizes([(2.0, 4.0, 1.0)])
+    //         .with_radii([0.2])
+    //         .with_colors([rerun::Color::WHITE]),
+    // )?;
     for (time, T_word_cam) in &poses {
         rec.set_timestamp_nanos_since_epoch("global_time", *time);
         let T_world_imu = T_word_cam * static_transforms.T_cam_imu;
@@ -268,7 +260,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let world_points: Vec<_> = point_cloud
         .iter()
-        .map(|(timestamp, T_world_cam, points)| {
+        .map(|(timestamp, _, T_world_cam, points)| {
             let mut world_points = Vec::new();
             for point in points {
                 world_points.push(T_world_cam * point);
@@ -292,8 +284,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_radii([0.2]),
     )?;
 
-    for (timestamp, _, points) in point_cloud {
-        rec.set_timestamp_nanos_since_epoch("global_time", timestamp);
+    for (timestamp, _, _, points) in &point_cloud {
+        rec.set_timestamp_nanos_since_epoch("global_time", *timestamp);
         let points = points
             .iter()
             .map(|point| point_to_rerun(point))
@@ -306,7 +298,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    add_images(&rec, "cam0", &path.join("undistorted_images").join("cam0"));
+    let intrinsics = &point_cloud.first().unwrap().1;
+    rec.log_static(
+        "world/car/cam",
+        &convert_to_rerun(&static_transforms.T_cam_imu.inverse()),
+    )?;
+    rec.log_static(
+        "world/car/cam",
+        &rerun::Pinhole::from_focal_length_and_resolution(
+            [intrinsics.fx as f32, intrinsics.fy as f32],
+            [intrinsics.width as f32, intrinsics.height as f32],
+        )
+        .with_principal_point([intrinsics.cx as f32, intrinsics.cy as f32])
+        .with_image_plane_distance(2.0  ),
+    );
+    add_images(
+        &rec,
+        "world/car/cam",
+        &path.join("undistorted_images").join("cam0"),
+    );
 
     Ok(())
 }
