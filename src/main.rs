@@ -4,7 +4,6 @@ mod input;
 mod output;
 mod style;
 
-use rerun::external::glam;
 use std::fs::File;
 use std::path::Path;
 use std::{env, fs};
@@ -21,13 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         rerun::RecordingStreamBuilder::new("4seasons_visualization.rrd").save("result.rrd")?;
     let trajectory = poses
         .iter()
-        .map(|(_, isometry)| {
-            glam::Vec3::new(
-                isometry.translation.x as f32,
-                isometry.translation.y as f32,
-                isometry.translation.z as f32,
-            )
-        })
+        .map(|(_, isometry)| output::point_to_rerun(&isometry.translation.vector.into()))
         .collect::<Vec<_>>();
 
     rec.log_static("world/trajectory", &rerun::LineStrips3D::new([trajectory]))?;
@@ -79,7 +72,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for keyframe in &key_frames {
         rec.set_timestamp_nanos_since_epoch("global_time", keyframe.timestamp);
-        let points = keyframe.points_cam
+        let points = keyframe
+            .points_cam
             .iter()
             .map(|point| output::point_to_rerun(point))
             .collect::<Vec<_>>();
