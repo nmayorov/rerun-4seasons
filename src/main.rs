@@ -1,4 +1,6 @@
+use kornia::io::png::read_image_png_mono8;
 use nalgebra as na;
+use rerun::RecordingStream;
 use rerun::external::glam;
 use std::fs::{File, read_to_string};
 use std::io::{BufRead, BufReader, Read};
@@ -75,6 +77,33 @@ fn parse_transforms(path: &Path) -> Result<Transforms, std::io::Error> {
         T_cam_imu: parse_transform(&lines[4].split(",").collect::<Vec<_>>()),
         T_gnss_imu: parse_transform(&lines[10].split(",").collect::<Vec<_>>()),
     })
+}
+
+fn add_images(rec: &RecordingStream, entity: &str, directory: &Path) {
+    let itesm = fs::read_dir(directory).unwrap();
+    for path in itesm {
+        if let Ok(entry) = path {
+            let path = entry.path();
+            rec.set_timestamp_nanos_since_epoch(
+                "global_time",
+                path.file_stem()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .parse::<i64>()
+                    .unwrap(),
+            );
+            let image = read_image_png_mono8(path).unwrap();
+            rec.log(
+                entity,
+                &rerun::Image::from_elements(
+                    image.as_slice(),
+                    image.size().into(),
+                    rerun::ColorModel::L,
+                ),
+            );
+        }
+    }
 }
 
 fn parse_keyframes(file: File) -> (i64, na::Isometry3<f64>, Vec<na::Point3<f64>>) {
@@ -188,7 +217,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let poses = parse_poses(&File::open(path.join("GNSSPoses.txt"))?);
     let static_transforms = parse_transforms(&path.join("Transformations.txt")).unwrap();
 
-    let rec = rerun::RecordingStreamBuilder::new("4seasons_visualization").connect_grpc()?;
+    let rec = rerun::RecordingStreamBuilder::new("4seasons_visualization.rrd").save("result.rrd")?;
     let trajectory = poses
         .iter()
         .map(|(_, isometry)| {
@@ -276,6 +305,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .with_colors([rerun::Color::from_rgb(255, 255, 0)]),
         );
     }
+
+    add_images(&rec, "cam0", &path.join("undistorted_images").join("cam0"));
 
     Ok(())
 }
