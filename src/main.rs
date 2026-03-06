@@ -2,10 +2,36 @@
 #![allow(dead_code)]
 
 mod input;
-mod util;
 
+use colorgrad::Gradient;
 use std::env;
 use std::path::Path;
+
+fn isometry_to_rerun(transform: &nalgebra::Isometry3<f64>) -> rerun::Transform3D {
+    let t = transform.translation.vector;
+    let q = transform.rotation.quaternion().coords;
+    rerun::Transform3D::from_translation_rotation(
+        [t.x as f32, t.y as f32, t.z as f32],
+        rerun::Quaternion::from_xyzw([q.x as f32, q.y as f32, q.z as f32, q.w as f32]),
+    )
+}
+
+fn point_to_rerun(vector: &nalgebra::Point3<f64>) -> rerun::Vec3D {
+    rerun::Vec3D::new(vector.x as f32, vector.y as f32, vector.z as f32)
+}
+
+fn color_range(
+    values: impl Iterator<Item = f64>,
+    min: f64,
+    max: f64,
+) -> impl Iterator<Item = rerun::Color> {
+    let grad = colorgrad::preset::turbo();
+    values.map(move |x| {
+        let t = (x - min) / (max - min);
+        let [r, g, b, _] = grad.at(t as f32).to_rgba8();
+        rerun::Color::from_rgb(r, g, b)
+    })
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -26,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .intrinsics;
 
     let rec = rerun::RecordingStreamBuilder::new("4seasons_visualization").save(output_path)?;
-    rec.log_static("world/car/cam", &util::isometry_to_rerun(&T_car_cam))?;
+    rec.log_static("world/car/cam", &isometry_to_rerun(&T_car_cam))?;
     rec.log_static(
         "world/car/cam",
         &rerun::Pinhole::from_focal_length_and_resolution(
@@ -43,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let gt_trajectory = gt_poses
         .iter()
-        .map(|(_, isometry)| util::point_to_rerun(&isometry.translation.vector.into()))
+        .map(|(_, isometry)| point_to_rerun(&isometry.translation.vector.into()))
         .collect::<Vec<_>>();
     rec.log_static(
         "world/gt_trajectory",
@@ -54,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let vio_trajectory = key_frames
         .iter()
-        .map(|keyframe| util::point_to_rerun(&keyframe.T_world_cam.translation.vector.into()))
+        .map(|keyframe| point_to_rerun(&keyframe.T_world_cam.translation.vector.into()))
         .collect::<Vec<_>>();
     rec.log_static(
         "world/vio_trajectory",
@@ -70,8 +96,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect();
     rec.log_static(
         "world/point_cloud",
-        &rerun::Points3D::new(point_cloud.iter().map(util::point_to_rerun))
-            .with_colors(util::color_range(
+        &rerun::Points3D::new(point_cloud.iter().map(point_to_rerun))
+            .with_colors(color_range(
                 point_cloud.iter().map(|point| point.z),
                 -3.0,
                 30.0,
@@ -83,7 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         rec.set_timestamp_nanos_since_epoch("global_time", keyframe.timestamp);
         rec.log(
             "world/car",
-            &util::isometry_to_rerun(&(keyframe.T_world_cam * T_car_cam.inverse())),
+            &isometry_to_rerun(&(keyframe.T_world_cam * T_car_cam.inverse())),
         )?;
         let image_points = keyframe
             .key_points_pixel
@@ -93,7 +119,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "world/car/cam/key_points",
             &rerun::Points2D::new(image_points)
                 .with_radii([2.0])
-                .with_colors(util::color_range(
+                .with_colors(color_range(
                     keyframe.key_points_pixel.iter().map(|pixel| pixel.depth),
                     1.0,
                     50.0,
