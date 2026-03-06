@@ -14,12 +14,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.get(1)
             .expect("Pass path to a directory with data as the first argument"),
     );
+    let output_path = args.get(2).map(|s| s.as_str()).unwrap_or("result.rrd");
 
     let gt_poses = input::read_gt_poses(base_directory);
     let transforms = input::read_static_transforms(base_directory);
     let T_car_cam = transforms.T_car_imu * transforms.T_cam_imu.inverse();
 
-    let rec = rerun::RecordingStreamBuilder::new("4seasons_visualization").save("result.rrd")?;
+    let rec = rerun::RecordingStreamBuilder::new("4seasons_visualization").save(output_path)?;
     let trajectory = gt_poses
         .iter()
         .map(|(_, isometry)| util::point_to_rerun(&isometry.translation.vector.into()))
