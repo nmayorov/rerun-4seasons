@@ -1,5 +1,3 @@
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 pub struct CamIntrinsics {
@@ -49,21 +47,14 @@ pub fn read_static_transforms(base_directory: &Path) -> Transforms {
     let content = std::fs::read_to_string(base_directory.join("Transformations.txt"))
         .expect("Can't read Transformations.txt");
     let lines = content.lines().collect::<Vec<_>>();
-    let T_cam_imu = {
+    let T_cam_imu = (|| {
         let index = lines
             .iter()
-            .position(|line| line == &"# TS_cam_imu: translation vector, rotation quaternion")
-            .expect("Error reading TS_cam_imu")
+            .position(|line| line == &"# TS_cam_imu: translation vector, rotation quaternion")?
             + 1;
-        parse_transform(
-            &lines
-                .get(index)
-                .expect("Error reading TS_cam_imu")
-                .split(",")
-                .collect::<Vec<_>>(),
-        )
-        .expect("Error reading TS_cam_imu")
-    };
+        parse_transform(&lines.get(index)?.split(",").collect::<Vec<_>>())
+    })()
+    .expect("Error reading TS_cam_imu");
     Transforms {
         T_car_imu: nalgebra::Isometry3::from_parts(
             nalgebra::Vector3::<f64>::zeros().into(),
@@ -74,13 +65,11 @@ pub fn read_static_transforms(base_directory: &Path) -> Transforms {
 }
 
 pub fn read_gt_poses(base_directory: &Path) -> Vec<(i64, nalgebra::Isometry3<f64>)> {
-    let file =
-        File::open(base_directory.join("GNSSPoses.txt")).expect("No GNSSPoses.txt file found");
-    let reader = BufReader::new(file);
-    let lines = reader.lines().skip(1);
+    let content = std::fs::read_to_string(base_directory.join("GNSSPoses.txt"))
+        .expect("Error reading GNSSPoses.txt file found");
+    let lines = content.lines().skip(1);
     let mut result = Vec::new();
     for line in lines {
-        let line = line.expect("Error parsing GNSSPoses.txt");
         let items = line.split(",").collect::<Vec<_>>();
         if items.len() < 8 {
             panic!("Error parsing GNSSPoses.txt");
