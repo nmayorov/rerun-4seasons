@@ -5,8 +5,8 @@ mod input;
 mod output;
 mod style;
 
-use std::path::Path;
 use std::env;
+use std::path::Path;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let base_directory = Path::new(&args[1]);
 
     let gt_poses = input::read_gt_poses(base_directory);
-    let transforms = input::read_transforms(&base_directory.join("Transformations.txt"))?;
+    let transforms = input::read_static_transforms(base_directory);
     let T_car_cam = transforms.T_car_imu * transforms.T_cam_imu.inverse();
 
     let rec =

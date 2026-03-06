@@ -14,7 +14,6 @@ pub struct CamIntrinsics {
 pub struct Transforms {
     pub T_car_imu: nalgebra::Isometry3<f64>,
     pub T_cam_imu: nalgebra::Isometry3<f64>,
-    pub T_gnss_imu: nalgebra::Isometry3<f64>,
 }
 
 pub struct KeyFrame {
@@ -46,17 +45,32 @@ fn parse_transform(items: &[&str]) -> Option<nalgebra::Isometry3<f64>> {
     ))
 }
 
-pub fn read_transforms(path: &Path) -> Result<Transforms, std::io::Error> {
-    let content = std::fs::read_to_string(path)?;
+pub fn read_static_transforms(base_directory: &Path) -> Transforms {
+    let content = std::fs::read_to_string(base_directory.join("Transformations.txt"))
+        .expect("Can't read Transformations.txt");
     let lines = content.lines().collect::<Vec<_>>();
-    Ok(Transforms {
+    let T_cam_imu = {
+        let index = lines
+            .iter()
+            .position(|line| line == &"# TS_cam_imu: translation vector, rotation quaternion")
+            .expect("Error reading TS_cam_imu")
+            + 1;
+        parse_transform(
+            &lines
+                .get(index)
+                .expect("Error reading TS_cam_imu")
+                .split(",")
+                .collect::<Vec<_>>(),
+        )
+        .expect("Error reading TS_cam_imu")
+    };
+    Transforms {
         T_car_imu: nalgebra::Isometry3::from_parts(
             nalgebra::Vector3::<f64>::zeros().into(),
             nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, std::f64::consts::PI),
         ),
-        T_cam_imu: parse_transform(&lines[4].split(",").collect::<Vec<_>>()).unwrap(),
-        T_gnss_imu: parse_transform(&lines[10].split(",").collect::<Vec<_>>()).unwrap(),
-    })
+        T_cam_imu,
+    }
 }
 
 pub fn read_gt_poses(base_directory: &Path) -> Vec<(i64, nalgebra::Isometry3<f64>)> {
