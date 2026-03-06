@@ -27,8 +27,8 @@ pub struct KeyFrame {
     pub timestamp: i64,
     pub intrinsics: CamIntrinsics,
     pub T_world_cam: nalgebra::Isometry3<f64>,
-    pub pixel_coords: Vec<Pixel>,
-    pub points_world: Vec<nalgebra::Point3<f64>>,
+    pub key_points_pixel: Vec<Pixel>,
+    pub key_points_world: Vec<nalgebra::Point3<f64>>,
 }
 
 fn parse_transform(items: &[&str]) -> Option<nalgebra::Isometry3<f64>> {
@@ -173,8 +173,8 @@ fn read_keyframe_file(path: &Path) -> Option<KeyFrame> {
         timestamp,
         intrinsics,
         T_world_cam,
-        pixel_coords,
-        points_world,
+        key_points_pixel: pixel_coords,
+        key_points_world: points_world,
     })
 }
 

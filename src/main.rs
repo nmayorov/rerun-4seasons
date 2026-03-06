@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let point_cloud: Vec<_> = key_frames
         .iter()
-        .flat_map(|keyframe| keyframe.points_world.clone())
+        .flat_map(|keyframe| keyframe.key_points_world.clone())
         .step_by(15)
         .collect();
     rec.log_static(
@@ -83,15 +83,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "world/car",
             &util::isometry_to_rerun(&(keyframe.T_world_cam * T_car_cam.inverse())),
         )?;
-        let image_points = keyframe.pixel_coords.iter().map(|coordinates| {
-            rerun::external::glam::Vec2::new(coordinates.u as f32, coordinates.v as f32)
-        });
+        let image_points = keyframe
+            .key_points_pixel
+            .iter()
+            .map(|pixel| rerun::external::glam::Vec2::new(pixel.u as f32, pixel.v as f32));
         rec.log(
             "world/car/cam/key_points",
             &rerun::Points2D::new(image_points)
                 .with_radii([2.0])
                 .with_colors(util::color_range(
-                    keyframe.pixel_coords.iter().map(|point| point.depth),
+                    keyframe.key_points_pixel.iter().map(|pixel| pixel.depth),
                     1.0,
                     50.0,
                 )),
