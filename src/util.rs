@@ -13,13 +13,15 @@ pub fn point_to_rerun(vector: &nalgebra::Point3<f64>) -> glam::Vec3 {
     glam::Vec3::new(vector.x as f32, vector.y as f32, vector.z as f32)
 }
 
-pub fn color_range(values: impl Iterator<Item = f64>, min: f64, max: f64) -> Vec<rerun::Color> {
-    values
-        .map(|x| {
-            let t = (x - min) / (max - min);
-            select_color_turbo(t as f32)
-        })
-        .collect()
+pub fn color_range(
+    values: impl Iterator<Item = f64>,
+    min: f64,
+    max: f64,
+) -> impl Iterator<Item = rerun::Color> {
+    values.map(move |x| {
+        let t = (x - min) / (max - min);
+        select_color_turbo(t as f32)
+    })
 }
 
 fn select_color_turbo(t: f32) -> rerun::Color {

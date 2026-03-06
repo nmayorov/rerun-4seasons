@@ -61,22 +61,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &rerun::Points3D::new(vio_trajectory).with_radii([0.05]),
     )?;
 
-    let point_cloud_world: Vec<_> = key_frames
+    let point_cloud: Vec<_> = key_frames
         .iter()
         .flat_map(|keyframe| keyframe.points_world.clone())
         .step_by(15)
         .collect();
-
-    let colors = util::color_range(point_cloud_world.iter().map(|point| point.z), -3.0, 30.0);
-    let points = point_cloud_world
-        .iter()
-        .map(|point| util::point_to_rerun(point))
-        .collect::<Vec<_>>();
-
     rec.log_static(
         "world/point_cloud",
-        &rerun::Points3D::new(points)
-            .with_colors(colors)
+        &rerun::Points3D::new(point_cloud.iter().map(util::point_to_rerun))
+            .with_colors(util::color_range(
+                point_cloud.iter().map(|point| point.z),
+                -3.0,
+                30.0,
+            ))
             .with_radii([0.05]),
     )?;
 
@@ -86,20 +83,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "world/car",
             &util::isometry_to_rerun(&(keyframe.T_world_cam * T_car_cam.inverse())),
         )?;
-        let colors =
-            util::color_range(keyframe.pixel_coords.iter().map(|point| point.z), 1.0, 50.0);
-        let points = keyframe
-            .pixel_coords
-            .iter()
-            .map(|coordinates| {
-                rerun::external::glam::Vec2::new(coordinates.x as f32, coordinates.y as f32)
-            })
-            .collect::<Vec<_>>();
+        let image_points = keyframe.pixel_coords.iter().map(|coordinates| {
+            rerun::external::glam::Vec2::new(coordinates.x as f32, coordinates.y as f32)
+        });
         rec.log(
             "world/car/cam/key_points",
-            &rerun::Points2D::new(points)
+            &rerun::Points2D::new(image_points)
                 .with_radii([2.0])
-                .with_colors(colors),
+                .with_colors(util::color_range(
+                    keyframe.pixel_coords.iter().map(|point| point.z),
+                    1.0,
+                    50.0,
+                )),
         )?;
     }
 
