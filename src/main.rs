@@ -16,29 +16,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let output_path = args.get(2).map(|s| s.as_str()).unwrap_or("result.rrd");
 
+    let static_transforms = input::read_static_transforms(base_directory);
     let gt_poses = input::read_gt_poses(base_directory);
-    let transforms = input::read_static_transforms(base_directory);
-    let T_car_cam = transforms.T_car_imu * transforms.T_cam_imu.inverse();
-
-    let rec = rerun::RecordingStreamBuilder::new("4seasons_visualization").save(output_path)?;
-    let trajectory = gt_poses
-        .iter()
-        .map(|(_, isometry)| util::point_to_rerun(&isometry.translation.vector.into()))
-        .collect::<Vec<_>>();
-
-    rec.log_static(
-        "world/trajectory",
-        &rerun::Points3D::new(trajectory)
-            .with_radii([0.01])
-            .with_colors([rerun::Color::WHITE]),
-    )?;
-
     let key_frames = input::read_keyframes(base_directory);
-
+    let T_car_cam = static_transforms.T_car_imu * static_transforms.T_cam_imu.inverse();
     let intrinsics = &key_frames
         .first()
         .ok_or("No single keyframe file was read")?
         .intrinsics;
+
+    let rec = rerun::RecordingStreamBuilder::new("4seasons_visualization").save(output_path)?;
     rec.log_static("world/car/cam", &util::isometry_to_rerun(&T_car_cam))?;
     rec.log_static(
         "world/car/cam",
@@ -54,6 +41,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &rerun::Points3D::new([[0.0, -5.0, 3.0]])
             .with_radii([0.01])
             .with_colors([rerun::Color::TRANSPARENT]),
+    )?;
+
+    let trajectory = gt_poses
+        .iter()
+        .map(|(_, isometry)| util::point_to_rerun(&isometry.translation.vector.into()))
+        .collect::<Vec<_>>();
+
+    rec.log_static(
+        "world/trajectory",
+        &rerun::Points3D::new(trajectory)
+            .with_radii([0.01])
+            .with_colors([rerun::Color::WHITE]),
     )?;
 
     let point_cloud_world: Vec<_> = key_frames
