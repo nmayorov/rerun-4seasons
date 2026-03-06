@@ -94,11 +94,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
     }
 
-    output::add_images(
-        &rec,
-        "world/car/cam/image",
-        &base_directory.join("undistorted_images").join("cam0"),
-    );
+    for (timestamp, image) in input::read_images(&base_directory) {
+        rec.set_timestamp_nanos_since_epoch("global_time", timestamp);
+        rec.log(
+            "world/car/cam/image",
+            &rerun::Image::from_elements(
+                image.as_slice(),
+                image.size().into(),
+                rerun::ColorModel::L,
+            ),
+        )?;
+    }
 
     Ok(())
 }

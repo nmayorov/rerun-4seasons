@@ -1,3 +1,6 @@
+use kornia::image::Image;
+use kornia::io::png::read_image_png_mono8;
+use kornia::tensor::CpuAllocator;
 use std::path::Path;
 
 pub struct CamIntrinsics {
@@ -166,5 +169,18 @@ fn read_keyframe_file(path: &Path) -> Option<KeyFrame> {
         T_world_cam,
         pixel_coords,
         points_world,
+    })
+}
+
+pub fn read_images(
+    base_directory: &Path,
+) -> impl Iterator<Item = (i64, Image<u8, 1, CpuAllocator>)> {
+    let items = std::fs::read_dir(base_directory.join("undistorted_images").join("cam0"))
+        .expect("Can't read undistorted_images/cam0 directory");
+    items.filter_map(|entry| {
+        let path = entry.ok()?.path();
+        let timestamp = path.file_stem()?.to_str()?.parse::<i64>().ok()?;
+        let image = read_image_png_mono8(path).ok()?;
+        Some((timestamp, image))
     })
 }
