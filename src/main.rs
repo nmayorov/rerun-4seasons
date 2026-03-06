@@ -14,13 +14,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let path = Path::new(&args[1]);
 
-    let poses = input::read_poses(&File::open(path.join("GNSSPoses.txt"))?);
+    let gt_poses = input::read_gt_poses(path);
     let transforms = input::read_transforms(&path.join("Transformations.txt"))?;
     let T_car_cam = transforms.T_car_imu * transforms.T_cam_imu.inverse();
 
     let rec =
         rerun::RecordingStreamBuilder::new("4seasons_visualization.rrd").save("result.rrd")?;
-    let trajectory = poses
+    let trajectory = gt_poses
         .iter()
         .map(|(_, isometry)| output::point_to_rerun(&isometry.translation.vector.into()))
         .collect::<Vec<_>>();

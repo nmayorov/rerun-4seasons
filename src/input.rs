@@ -25,22 +25,25 @@ pub struct KeyFrame {
     pub points_world: Vec<nalgebra::Point3<f64>>,
 }
 
-pub fn parse_transform(items: &[&str]) -> nalgebra::Isometry3<f64> {
+fn parse_transform(items: &[&str]) -> Option<nalgebra::Isometry3<f64>> {
+    if items.len() < 7 {
+        return None;
+    }
     let translation = nalgebra::Translation3::new(
-        items[0].parse().unwrap(),
-        items[1].parse().unwrap(),
-        items[2].parse().unwrap(),
+        items[0].parse().ok()?,
+        items[1].parse().ok()?,
+        items[2].parse().ok()?,
     );
     let rotation = nalgebra::Quaternion::new(
-        items[6].parse().unwrap(),
-        items[3].parse().unwrap(),
-        items[4].parse().unwrap(),
-        items[5].parse().unwrap(),
+        items[6].parse().ok()?,
+        items[3].parse().ok()?,
+        items[4].parse().ok()?,
+        items[5].parse().ok()?,
     );
-    nalgebra::Isometry3::from_parts(
+    Some(nalgebra::Isometry3::from_parts(
         translation,
         nalgebra::UnitQuaternion::from_quaternion(rotation),
-    )
+    ))
 }
 
 pub fn read_transforms(path: &Path) -> Result<Transforms, std::io::Error> {
@@ -51,25 +54,29 @@ pub fn read_transforms(path: &Path) -> Result<Transforms, std::io::Error> {
             nalgebra::Vector3::<f64>::zeros().into(),
             nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, std::f64::consts::PI),
         ),
-        T_cam_imu: parse_transform(&lines[4].split(",").collect::<Vec<_>>()),
-        T_gnss_imu: parse_transform(&lines[10].split(",").collect::<Vec<_>>()),
+        T_cam_imu: parse_transform(&lines[4].split(",").collect::<Vec<_>>()).unwrap(),
+        T_gnss_imu: parse_transform(&lines[10].split(",").collect::<Vec<_>>()).unwrap(),
     })
 }
 
-pub fn read_poses(file: &File) -> Vec<(i64, nalgebra::Isometry3<f64>)> {
+pub fn read_gt_poses(base_directory: &Path) -> Vec<(i64, nalgebra::Isometry3<f64>)> {
+    let file =
+        File::open(base_directory.join("GNSSPoses.txt")).expect("No GNSSPoses.txt file found");
     let reader = BufReader::new(file);
-    let mut lines = reader.lines();
-    lines.next();
-
+    let lines = reader.lines().skip(1);
     let mut result = Vec::new();
     for line in lines {
-        if let Ok(line) = line {
-            let items = line.split(",").collect::<Vec<_>>();
-            let transform = parse_transform(&items[1..8]);
-            result.push((items[0].parse::<i64>().unwrap(), transform));
+        let line = line.expect("Error parsing GNSSPoses.txt");
+        let items = line.split(",").collect::<Vec<_>>();
+        if items.len() < 8 {
+            panic!("Error parsing GNSSPoses.txt");
         }
+        let timestamp = items[0]
+            .parse::<i64>()
+            .expect("Error parsing GNSSPoses.txt");
+        let transform = parse_transform(&items[1..8]).expect("Error parsing GNSSPoses.txt");
+        result.push((timestamp, transform));
     }
-
     result
 }
 
@@ -115,7 +122,7 @@ pub fn read_keyframes(file: File) -> KeyFrame {
             .unwrap()
             + 1;
         let items = lines[index].split(",").collect::<Vec<_>>();
-        parse_transform(&items)
+        parse_transform(&items).unwrap()
     };
 
     let (pixel_coords, points_world) = {
