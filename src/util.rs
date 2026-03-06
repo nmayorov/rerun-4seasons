@@ -1,5 +1,4 @@
 use colorgrad::Gradient;
-use rerun::external::glam;
 
 pub fn isometry_to_rerun(transform: &nalgebra::Isometry3<f64>) -> rerun::Transform3D {
     let t = transform.translation.vector;
@@ -10,8 +9,8 @@ pub fn isometry_to_rerun(transform: &nalgebra::Isometry3<f64>) -> rerun::Transfo
     )
 }
 
-pub fn point_to_rerun(vector: &nalgebra::Point3<f64>) -> glam::Vec3 {
-    glam::Vec3::new(vector.x as f32, vector.y as f32, vector.z as f32)
+pub fn point_to_rerun(vector: &nalgebra::Point3<f64>) -> rerun::Vec3D {
+    rerun::Vec3D::new(vector.x as f32, vector.y as f32, vector.z as f32)
 }
 
 pub fn color_range(
