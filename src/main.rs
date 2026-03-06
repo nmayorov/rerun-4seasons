@@ -43,16 +43,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_colors([rerun::Color::TRANSPARENT]),
     )?;
 
-    let trajectory = gt_poses
+    let gt_trajectory = gt_poses
         .iter()
         .map(|(_, isometry)| util::point_to_rerun(&isometry.translation.vector.into()))
         .collect::<Vec<_>>();
-
     rec.log_static(
-        "world/trajectory",
-        &rerun::Points3D::new(trajectory)
-            .with_radii([0.01])
-            .with_colors([rerun::Color::WHITE]),
+        "world/gt_trajectory",
+        &rerun::Points3D::new(gt_trajectory).with_radii([0.05]),
+    )?;
+
+    let vio_trajectory = key_frames
+        .iter()
+        .map(|keyframe| util::point_to_rerun(&keyframe.T_world_cam.translation.vector.into()))
+        .collect::<Vec<_>>();
+    rec.log_static(
+        "world/vio_trajectory",
+        &rerun::Points3D::new(vio_trajectory).with_radii([0.05]),
     )?;
 
     let point_cloud_world: Vec<_> = key_frames
