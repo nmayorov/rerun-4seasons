@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(dead_code)]
 
 mod input;
 mod output;
@@ -14,7 +15,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = Path::new(&args[1]);
 
     let poses = input::read_poses(&File::open(path.join("GNSSPoses.txt"))?);
-    let static_transforms = input::read_transforms(&path.join("Transformations.txt"))?;
 
     let rec =
         rerun::RecordingStreamBuilder::new("4seasons_visualization.rrd").save("result.rrd")?;
@@ -30,12 +30,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_colors([rerun::Color::WHITE]),
     )?;
 
-    for (time, T_word_cam) in &poses {
-        rec.set_timestamp_nanos_since_epoch("global_time", *time);
-        let T_world_imu = T_word_cam * static_transforms.T_cam_imu;
-        rec.log("world/car", &output::isometry_to_rerun(&T_world_imu))?;
-    }
-
     let key_frames = {
         let mut key_frames = Vec::new();
         let keyframe_path = path.join("KeyFrameData");
@@ -46,6 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 key_frames.push(input::read_keyframes(file));
             }
         }
+        key_frames.sort_by_key(|kf| kf.timestamp);
         key_frames
     };
 
@@ -71,6 +66,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for keyframe in &key_frames {
         rec.set_timestamp_nanos_since_epoch("global_time", keyframe.timestamp);
+        rec.log(
+            "world/cam",
+            &output::isometry_to_rerun(&keyframe.T_world_cam),
+        )?;
         let colors =
             style::color_range(keyframe.pixel_coords.iter().map(|point| point.z), 1.0, 50.0);
         let points = keyframe
@@ -81,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
             .collect::<Vec<_>>();
         rec.log(
-            "world/car/cam/key_points",
+            "world/cam/key_points",
             &rerun::Points2D::new(points)
                 .with_radii([2.0])
                 .with_colors(colors),
@@ -90,11 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let intrinsics = &key_frames.first().unwrap().intrinsics;
     rec.log_static(
-        "world/car/cam",
-        &output::isometry_to_rerun(&static_transforms.T_cam_imu.inverse()),
-    )?;
-    rec.log_static(
-        "world/car/cam",
+        "world/cam",
         &rerun::Pinhole::from_focal_length_and_resolution(
             [intrinsics.fx as f32, intrinsics.fy as f32],
             [intrinsics.width as f32, intrinsics.height as f32],
@@ -102,9 +97,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_principal_point([intrinsics.cx as f32, intrinsics.cy as f32])
         .with_image_plane_distance(2.0),
     )?;
+
     output::add_images(
         &rec,
-        "world/car/cam",
+        "world/cam/image",
         &path.join("undistorted_images").join("cam0"),
     );
 
