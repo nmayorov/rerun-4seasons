@@ -84,14 +84,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &util::isometry_to_rerun(&(keyframe.T_world_cam * T_car_cam.inverse())),
         )?;
         let image_points = keyframe.pixel_coords.iter().map(|coordinates| {
-            rerun::external::glam::Vec2::new(coordinates.x as f32, coordinates.y as f32)
+            rerun::external::glam::Vec2::new(coordinates.u as f32, coordinates.v as f32)
         });
         rec.log(
             "world/car/cam/key_points",
             &rerun::Points2D::new(image_points)
                 .with_radii([2.0])
                 .with_colors(util::color_range(
-                    keyframe.pixel_coords.iter().map(|point| point.z),
+                    keyframe.pixel_coords.iter().map(|point| point.depth),
                     1.0,
                     50.0,
                 )),

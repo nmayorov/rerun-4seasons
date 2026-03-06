@@ -17,11 +17,17 @@ pub struct Transforms {
     pub T_cam_imu: nalgebra::Isometry3<f64>,
 }
 
+pub struct Pixel {
+    pub u: f64,
+    pub v: f64,
+    pub depth: f64,
+}
+
 pub struct KeyFrame {
     pub timestamp: i64,
     pub intrinsics: CamIntrinsics,
     pub T_world_cam: nalgebra::Isometry3<f64>,
-    pub pixel_coords: Vec<nalgebra::Vector3<f64>>,
+    pub pixel_coords: Vec<Pixel>,
     pub points_world: Vec<nalgebra::Point3<f64>>,
 }
 
@@ -152,7 +158,7 @@ fn read_keyframe_file(path: &Path) -> Option<KeyFrame> {
             let u = items[0].parse::<f64>().ok()?;
             let v = items[1].parse::<f64>().ok()?;
             let depth = 1.0 / items[2].parse::<f64>().ok()?;
-            pixel_coords.push(nalgebra::Vector3::new(u, v, depth));
+            pixel_coords.push(Pixel { u, v, depth });
             let point_cam = nalgebra::Point3::new(
                 (u - intrinsics.cx) * depth / intrinsics.fx,
                 (v - intrinsics.cy) * depth / intrinsics.fy,
