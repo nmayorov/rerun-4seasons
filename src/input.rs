@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 pub struct CamIntrinsics {
@@ -80,66 +80,73 @@ pub fn read_gt_poses(base_directory: &Path) -> Vec<(i64, nalgebra::Isometry3<f64
     result
 }
 
-pub fn read_keyframes(file: File) -> KeyFrame {
-    let content = {
-        let mut file = file;
-        let mut content = String::new();
-        file.read_to_string(&mut content).unwrap();
-        content
-    };
-    let lines = content.lines().collect::<Vec<_>>();
+pub fn read_keyframes(base_directory: &Path) -> Vec<KeyFrame> {
+    let mut result = Vec::new();
+    let keyframe_path = base_directory.join("KeyFrameData");
+    let paths = std::fs::read_dir(keyframe_path).expect("No KeyFrameData directory");
+    for path in paths {
+        let entry = path.expect("Error reading KeyFrameData directory");
+        if let Some(keyframe) = read_keyframe_file(&entry.path()) {
+            result.push(keyframe);
+        }
+    }
+    result.sort_by_key(|kf| kf.timestamp);
+    result
+}
 
+fn read_keyframe_file(path: &Path) -> Option<KeyFrame> {
+    let content =
+        std::fs::read_to_string(path).expect("Error reading file in KeyFrameData directory");
+    let lines = content.lines().collect::<Vec<_>>();
     let timestamp = {
-        let index = lines
-            .iter()
-            .position(|line| line == &"# timestamp")
-            .unwrap()
-            + 1;
-        lines[index].parse::<i64>().unwrap()
+        let index = lines.iter().position(|line| line == &"# timestamp")? + 1;
+        lines[index].parse::<i64>().ok()?
     };
 
     let intrinsics = {
         let index = lines
             .iter()
-            .position(|line| line == &"# fx, fy, cx, cy, width, height, npoints")
-            .unwrap()
+            .position(|line| line == &"# fx, fy, cx, cy, width, height, npoints")?
             + 1;
-        let items = lines[index].split(",").collect::<Vec<_>>();
+        let items = lines.get(index)?.split(",").collect::<Vec<_>>();
+        if items.len() < 6 {
+            return None;
+        }
         CamIntrinsics {
-            fx: items[0].parse().unwrap(),
-            fy: items[1].parse().unwrap(),
-            cx: items[2].parse().unwrap(),
-            cy: items[3].parse().unwrap(),
-            width: items[4].parse().unwrap(),
-            height: items[5].parse().unwrap(),
+            fx: items[0].parse().ok()?,
+            fy: items[1].parse().ok()?,
+            cx: items[2].parse().ok()?,
+            cy: items[3].parse().ok()?,
+            width: items[4].parse().ok()?,
+            height: items[5].parse().ok()?,
         }
     };
 
     let T_world_cam = {
         let index = lines
             .iter()
-            .position(|line| line == &"# camToWorld: translation vector, rotation quaternion")
-            .unwrap()
+            .position(|line| line == &"# camToWorld: translation vector, rotation quaternion")?
             + 1;
-        let items = lines[index].split(",").collect::<Vec<_>>();
-        parse_transform(&items).unwrap()
+        let items = lines.get(index)?.split(",").collect::<Vec<_>>();
+        parse_transform(&items)?
     };
 
     let (pixel_coords, points_world) = {
         let start = lines
             .iter()
-            .position(|line| line == &"# Point Cloud Data : ")
-            .unwrap()
+            .position(|line| line == &"# Point Cloud Data : ")?
             + 3;
         let mut pixel_coords = Vec::new();
         let mut points_world = Vec::new();
-        for &line in lines[start..].iter().step_by(2) {
+        for &line in lines.get(start..)?.iter().step_by(2) {
             let items = line.split(",").collect::<Vec<_>>();
-            let u = items[0].parse::<f64>().unwrap();
-            let v = items[1].parse::<f64>().unwrap();
-            let depth = 1.0 / items[2].parse::<f64>().unwrap();
+            if items.len() < 3 {
+                return None;
+            }
+            let u = items[0].parse::<f64>().ok()?;
+            let v = items[1].parse::<f64>().ok()?;
+            let depth = 1.0 / items[2].parse::<f64>().ok()?;
             pixel_coords.push(nalgebra::Vector3::new(u, v, depth));
-
             let point_cam = nalgebra::Point3::new(
                 (u - intrinsics.cx) * depth / intrinsics.fx,
                 (v - intrinsics.cy) * depth / intrinsics.fy,
@@ -150,11 +157,11 @@ pub fn read_keyframes(file: File) -> KeyFrame {
         (pixel_coords, points_world)
     };
 
-    KeyFrame {
+    Some(KeyFrame {
         timestamp,
         intrinsics,
         T_world_cam,
         pixel_coords,
         points_world,
-    }
+    })
 }

@@ -5,17 +5,16 @@ mod input;
 mod output;
 mod style;
 
-use std::fs::File;
 use std::path::Path;
-use std::{env, fs};
+use std::env;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 
-    let path = Path::new(&args[1]);
+    let base_directory = Path::new(&args[1]);
 
-    let gt_poses = input::read_gt_poses(path);
-    let transforms = input::read_transforms(&path.join("Transformations.txt"))?;
+    let gt_poses = input::read_gt_poses(base_directory);
+    let transforms = input::read_transforms(&base_directory.join("Transformations.txt"))?;
     let T_car_cam = transforms.T_car_imu * transforms.T_cam_imu.inverse();
 
     let rec =
@@ -32,19 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_colors([rerun::Color::WHITE]),
     )?;
 
-    let key_frames = {
-        let mut key_frames = Vec::new();
-        let keyframe_path = path.join("KeyFrameData");
-        let paths = fs::read_dir(keyframe_path)?;
-        for path in paths {
-            if let Ok(entry) = path {
-                let file = File::open(entry.path())?;
-                key_frames.push(input::read_keyframes(file));
-            }
-        }
-        key_frames.sort_by_key(|kf| kf.timestamp);
-        key_frames
-    };
+    let key_frames = input::read_keyframes(base_directory);
 
     let intrinsics = &key_frames.first().unwrap().intrinsics;
     rec.log_static("world/car/cam", &output::isometry_to_rerun(&T_car_cam))?;
@@ -110,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     output::add_images(
         &rec,
         "world/car/cam/image",
-        &path.join("undistorted_images").join("cam0"),
+        &base_directory.join("undistorted_images").join("cam0"),
     );
 
     Ok(())
