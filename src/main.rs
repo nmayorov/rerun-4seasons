@@ -38,9 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     rec.log_static(
         "world/car/obs_point",
-        &rerun::Points3D::new([[0.0, -5.0, 3.0]])
-            .with_radii([0.01])
-            .with_colors([rerun::Color::TRANSPARENT]),
+        &rerun::Points3D::new([[0.0, -5.0, 3.0]]).with_radii([0.0]),
     )?;
 
     let gt_trajectory = gt_poses
@@ -49,7 +47,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect::<Vec<_>>();
     rec.log_static(
         "world/gt_trajectory",
-        &rerun::Points3D::new(gt_trajectory).with_radii([0.05]),
+        &rerun::Points3D::new(gt_trajectory)
+            .with_radii([0.05])
+            .with_colors([rerun::Color::from_rgb(255, 255, 255)]),
     )?;
 
     let vio_trajectory = key_frames
@@ -58,7 +58,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect::<Vec<_>>();
     rec.log_static(
         "world/vio_trajectory",
-        &rerun::Points3D::new(vio_trajectory).with_radii([0.05]),
+        &rerun::Points3D::new(vio_trajectory)
+            .with_radii([0.05])
+            .with_colors([rerun::Color::from_rgb(255, 0, 255)]),
     )?;
 
     let point_cloud: Vec<_> = key_frames
