@@ -12,6 +12,7 @@ pub struct CamIntrinsics {
 }
 
 pub struct Transforms {
+    pub T_car_imu: nalgebra::Isometry3<f64>,
     pub T_cam_imu: nalgebra::Isometry3<f64>,
     pub T_gnss_imu: nalgebra::Isometry3<f64>,
 }
@@ -46,6 +47,10 @@ pub fn read_transforms(path: &Path) -> Result<Transforms, std::io::Error> {
     let content = std::fs::read_to_string(path)?;
     let lines = content.lines().collect::<Vec<_>>();
     Ok(Transforms {
+        T_car_imu: nalgebra::Isometry3::from_parts(
+            nalgebra::Vector3::<f64>::zeros().into(),
+            nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, std::f64::consts::PI),
+        ),
         T_cam_imu: parse_transform(&lines[4].split(",").collect::<Vec<_>>()),
         T_gnss_imu: parse_transform(&lines[10].split(",").collect::<Vec<_>>()),
     })

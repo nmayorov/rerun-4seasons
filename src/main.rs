@@ -15,6 +15,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = Path::new(&args[1]);
 
     let poses = input::read_poses(&File::open(path.join("GNSSPoses.txt"))?);
+    let transforms = input::read_transforms(&path.join("Transformations.txt"))?;
+    let T_car_cam = transforms.T_car_imu * transforms.T_cam_imu.inverse();
 
     let rec =
         rerun::RecordingStreamBuilder::new("4seasons_visualization.rrd").save("result.rrd")?;
@@ -44,6 +46,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         key_frames
     };
 
+    let intrinsics = &key_frames.first().unwrap().intrinsics;
+    rec.log_static("world/car/cam", &output::isometry_to_rerun(&T_car_cam))?;
+    rec.log_static(
+        "world/car/cam",
+        &rerun::Pinhole::from_focal_length_and_resolution(
+            [intrinsics.fx as f32, intrinsics.fy as f32],
+            [intrinsics.width as f32, intrinsics.height as f32],
+        )
+        .with_principal_point([intrinsics.cx as f32, intrinsics.cy as f32])
+        .with_image_plane_distance(2.0),
+    )?;
+    rec.log_static(
+        "world/car/obs_point",
+        &rerun::Points3D::new([[0.0, -5.0, 3.0]])
+            .with_radii([0.01])
+            .with_colors([rerun::Color::TRANSPARENT]),
+    )?;
+
     let point_cloud_world: Vec<_> = key_frames
         .iter()
         .map(|keyframe| keyframe.points_world.clone())
@@ -67,8 +87,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for keyframe in &key_frames {
         rec.set_timestamp_nanos_since_epoch("global_time", keyframe.timestamp);
         rec.log(
-            "world/cam",
-            &output::isometry_to_rerun(&keyframe.T_world_cam),
+            "world/car",
+            &output::isometry_to_rerun(&(keyframe.T_world_cam * T_car_cam.inverse())),
         )?;
         let colors =
             style::color_range(keyframe.pixel_coords.iter().map(|point| point.z), 1.0, 50.0);
@@ -80,27 +100,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
             .collect::<Vec<_>>();
         rec.log(
-            "world/cam/key_points",
+            "world/car/cam/key_points",
             &rerun::Points2D::new(points)
                 .with_radii([2.0])
                 .with_colors(colors),
         )?;
     }
 
-    let intrinsics = &key_frames.first().unwrap().intrinsics;
-    rec.log_static(
-        "world/cam",
-        &rerun::Pinhole::from_focal_length_and_resolution(
-            [intrinsics.fx as f32, intrinsics.fy as f32],
-            [intrinsics.width as f32, intrinsics.height as f32],
-        )
-        .with_principal_point([intrinsics.cx as f32, intrinsics.cy as f32])
-        .with_image_plane_distance(2.0),
-    )?;
-
     output::add_images(
         &rec,
-        "world/cam/image",
+        "world/car/cam/image",
         &path.join("undistorted_images").join("cam0"),
     );
 
