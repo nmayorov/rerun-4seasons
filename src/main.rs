@@ -160,6 +160,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
     }
 
+    for ((timestamp, T_world_cam), key_frame) in gt_poses.iter().zip(&key_frames) {
+        let T_world_car = T_world_cam * T_car_cam.inverse();
+        let T_world_vio = key_frame.T_world_cam * T_car_cam.inverse();
+        let T_car_vio = T_world_car.inverse() * T_world_vio;
+        let (roll, pitch, yaw) = T_car_vio.rotation.euler_angles();
+
+        rec.set_timestamp_nanos_since_epoch("global_time", *timestamp);
+        rec.log(
+            "metrics/vio_error/horizontal",
+            &rerun::Scalars::single(T_car_vio.translation.x.hypot(T_car_vio.translation.y)),
+        )?;
+        rec.log(
+            "metrics/vio_error/vertical",
+            &rerun::Scalars::single(T_car_vio.translation.z),
+        )?;
+        rec.log(
+            "metrics/vio_error/roll",
+            &rerun::Scalars::single(roll.to_degrees()),
+        )?;
+        rec.log(
+            "metrics/vio_error/pitch",
+            &rerun::Scalars::single(pitch.to_degrees()),
+        )?;
+        rec.log(
+            "metrics/vio_error/yaw",
+            &rerun::Scalars::single(yaw.to_degrees()),
+        )?;
+    }
+
     for (timestamp, image) in input::read_images(base_directory) {
         rec.set_timestamp_nanos_since_epoch("global_time", timestamp);
         rec.log(
