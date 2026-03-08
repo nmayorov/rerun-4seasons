@@ -106,12 +106,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .iter()
                 .map(move |point| T_world_cam * point)
         })
-        .step_by(GLOBAL_POINT_CLOUD_SUBSAMPLE)
-        .collect::<Vec<_>>();
+        .step_by(GLOBAL_POINT_CLOUD_SUBSAMPLE);
 
     rec.log_static(
         "world/global_point_cloud",
-        &rerun::Points3D::new(global_point_cloud.iter().map(point_to_rerun))
+        &rerun::Points3D::new(global_point_cloud.map(|point| point_to_rerun(&point)))
             .with_colors([rerun::Color::from_rgb(255, 100, 0)])
             .with_radii([0.05]),
     )?;
@@ -142,8 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for i in 0..key_frames.len() {
         let start = i.saturating_sub_signed(LOCAL_POINT_CLOUD_WINDOW as isize / 2);
         let end = (start + LOCAL_POINT_CLOUD_WINDOW).min(key_frames.len());
-        let batch = &key_frames[start..end];
-        let points = batch
+        let points = key_frames[start..end]
             .iter()
             .map(|keyframe| keyframe.key_points_world.iter())
             .flatten();
