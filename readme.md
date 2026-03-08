@@ -50,7 +50,7 @@ Some tips and tricks for using the visualization:
 1. You can configure rerun viewer as you see fit.
 2. There is an entity called "observation_point". 
    It is convenient to select it by "Set as eye tracked", zoom in appropriately and observe the surrounding as the vehicle moves.
-3. The blueprint file for the 4-window view shown above is provided in the repository.
+3. The blueprint file for the 4-panel view shown above is provided in the repository.
 
 ## Build and run
 
