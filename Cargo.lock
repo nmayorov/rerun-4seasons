@@ -9698,6 +9698,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rerun_4seasons"
+version = "0.1.0"
+dependencies = [
+ "colorgrad",
+ "kornia",
+ "nalgebra 0.34.1",
+ "rerun",
+]
+
+[[package]]
 name = "resvg"
 version = "0.45.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11395,16 +11405,6 @@ name = "virtue"
 version = "0.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
-
-[[package]]
-name = "visualize_4seasons"
-version = "0.1.0"
-dependencies = [
- "colorgrad",
- "kornia",
- "nalgebra 0.34.1",
- "rerun",
-]
 
 [[package]]
 name = "walkdir"
