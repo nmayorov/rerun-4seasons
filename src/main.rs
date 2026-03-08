@@ -34,6 +34,10 @@ fn color_range(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    const GLOBAL_POINT_CLOUD_SUBSAMPLE: usize = 15;
+    const LOCAL_POINT_CLOUD_SUBSAMPLE: usize = 1;
+    const LOCAL_POINT_CLOUD_WINDOW: usize = 100;
+
     let args: Vec<String> = env::args().collect();
 
     let base_directory = Path::new(
@@ -103,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .iter()
                 .map(move |point| T_world_cam * point)
         })
-        .step_by(15)
+        .step_by(GLOBAL_POINT_CLOUD_SUBSAMPLE)
         .collect::<Vec<_>>();
 
     rec.log_static(
@@ -113,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 global_point_cloud.iter().map(|point| point.z),
                 -3.0,
                 30.0,
-                colorgrad::preset::turbo(),
+                colorgrad::preset::magma(),
             ))
             .with_radii([0.05]),
     )?;
@@ -136,8 +140,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     keyframe.key_points_pixel.iter().map(|pixel| pixel.depth),
                     1.0,
                     50.0,
-                    colorgrad::preset::turbo()
+                    colorgrad::preset::magma(),
                 )),
+        )?;
+    }
+
+    for i in 0..key_frames.len() {
+        let start = i.saturating_sub_signed(LOCAL_POINT_CLOUD_WINDOW as isize / 2);
+        let end = (i + LOCAL_POINT_CLOUD_WINDOW / 2).min(key_frames.len());
+        let batch = &key_frames[start..end];
+        let points = batch
+            .iter()
+            .map(|keyframe| keyframe.key_points_world.iter())
+            .flatten();
+
+        rec.set_timestamp_nanos_since_epoch("global_time", key_frames[i].timestamp);
+        rec.log(
+            "world/local_point_cloud",
+            &rerun::Points3D::new(points.clone().map(point_to_rerun))
+                .with_colors(color_range(
+                    points.map(|point| point.z),
+                    -3.0,
+                    30.0,
+                    colorgrad::preset::cool(),
+                ))
+                .with_radii([0.05]),
         )?;
     }
 
