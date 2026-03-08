@@ -53,24 +53,33 @@ fn parse_transform(items: &[&str]) -> Option<nalgebra::Isometry3<f64>> {
     ))
 }
 
+fn read_transform(lines: &[&str], name: &str) -> nalgebra::Isometry3<f64> {
+    let error_message = format!("Can't read {} transform", name);
+    let index = lines
+        .iter()
+        .position(|line| line.starts_with(&format!("# {}", name)))
+        .expect(&error_message)
+        + 1;
+    parse_transform(
+        &lines
+            .get(index)
+            .expect(&error_message)
+            .split(",")
+            .collect::<Vec<_>>(),
+    )
+    .expect(&error_message)
+}
+
 pub fn read_static_transforms(base_directory: &Path) -> Transforms {
     let content = std::fs::read_to_string(base_directory.join("Transformations.txt"))
         .expect("Can't read Transformations.txt");
     let lines = content.lines().collect::<Vec<_>>();
-    let T_cam_imu = (|| {
-        let index = lines
-            .iter()
-            .position(|line| line == &"# TS_cam_imu: translation vector, rotation quaternion")?
-            + 1;
-        parse_transform(&lines.get(index)?.split(",").collect::<Vec<_>>())
-    })()
-    .expect("Error reading TS_cam_imu");
     Transforms {
         T_car_imu: nalgebra::Isometry3::from_parts(
             nalgebra::Vector3::<f64>::zeros().into(),
             nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, std::f64::consts::PI),
         ),
-        T_cam_imu,
+        T_cam_imu: read_transform(&lines, "TS_cam_imu"),
     }
 }
 
@@ -88,7 +97,9 @@ pub fn read_gt_poses(base_directory: &Path) -> Vec<(i64, nalgebra::Isometry3<f64
             .parse::<i64>()
             .expect("Error parsing GNSSPoses.txt");
         let transform = parse_transform(&items[1..8]).expect("Error parsing GNSSPoses.txt");
-        let scale = items[8].parse::<f64>().expect("Error parsing GNSSPoses.txt");
+        let scale = items[8]
+            .parse::<f64>()
+            .expect("Error parsing GNSSPoses.txt");
         result.push((timestamp, transform, scale));
     }
     result
