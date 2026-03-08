@@ -2,14 +2,7 @@
 
 A Rust CLI program to visualize the [4Seasons](https://cvg.cit.tum.de/data/datasets/4seasons-dataset) SLAM dataset.
 
-<p>
-  <a href="images/track.png">
-    <img src="images/track.png" width="49%"/>
-  </a>
-  <a href="images/local_cloud.png">
-    <img src="images/local_cloud.png" width="49%"/>
-  </a>
-</p>
+![screenshot.png](images/screenshot.png)
 
 ## The dataset
 
@@ -33,7 +26,6 @@ Here are some more insights and details how this dataset is used in this visuali
    The GT trajectory is contained in GNSSPoses.txt, whereas the VIO trajectory is contained in KeyFrameData directory files and result.txt.
    The important thing is that without any additional transformations _both_ trajectories provide camera poses relative to same SLAM/VIO frame of reference.
    To get metric poses relative to ECEF you need to apply the chain of transforms described [here](https://github.com/pmwenzel/4seasons-dataset).
-   This is not currently done as it appears to be not necessary for the visualization purposes.
 3. To get point clouds you need to take pixel coordinates and inverse depths of tracked points from KeyFrameData files and project them into the world.
    There are two ways to do that:
       1. Using GT poses -- this will create a globally consistent point cloud with a caveat that provided point depths are not optimized, which can create some inconsistencies.
@@ -44,22 +36,21 @@ Here are some more insights and details how this dataset is used in this visuali
 
 ## The visualization
 
-The screenshots at the beginning show a rerun window with the open visualization on "office_loop_1_train" sequence.
+The screenshot at the beginning show a rerun window with the open visualization on "office_loop_1_train" sequence.
+There are 4 views:
 
-On the left, the global point cloud (using GT poses) is displayed to give an overview of the whole track.
-The global point cloud is displayed in orange without any gradient coloring.
-
-On the right, local point cloud with corresponding camera image and keypoints are displayed.
-The bottom panel displays plots of VIO pose errors with respect to the ground truth.
-The local point cloud is displayed using gradient based on point height (z-coordinate of a pose).
-The global point cloud is toggled off for better visual clarity.
+1. The 3D view showing local point cloud with gradient coloring based on point z-coordinate (height).
+   The global point cloud view is available (in constant color), but toggled off for better visual clarity.
+2. The image view with tracked key points with gradient coloring based on point depth.
+3. The map view showing a current position and a recent track.
+4. The plot view showing time series of VIO pose errors with respect to ground truth poses.
 
 Some tips and tricks for using the visualization:
 
 1. You can configure rerun viewer as you see fit.
 2. There is an entity called "observation_point". 
    It is convenient to select it by "Set as eye tracked", zoom in appropriately and observe the surrounding as the vehicle moves.
-3. The blueprint file for the 3-window view shown above is provided in the repository.
+3. The blueprint file for the 4-window view shown above is provided in the repository.
 
 ## Build and run
 
