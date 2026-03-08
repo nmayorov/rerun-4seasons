@@ -34,8 +34,7 @@ fn color_range(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const GLOBAL_POINT_CLOUD_SUBSAMPLE: usize = 15;
-    const LOCAL_POINT_CLOUD_SUBSAMPLE: usize = 1;
+    const GLOBAL_POINT_CLOUD_SUBSAMPLE: usize = 10;
     const LOCAL_POINT_CLOUD_WINDOW: usize = 100;
 
     let args: Vec<String> = env::args().collect();
@@ -113,12 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rec.log_static(
         "world/global_point_cloud",
         &rerun::Points3D::new(global_point_cloud.iter().map(point_to_rerun))
-            .with_colors(color_range(
-                global_point_cloud.iter().map(|point| point.z),
-                -3.0,
-                30.0,
-                colorgrad::preset::magma(),
-            ))
+            .with_colors([rerun::Color::from_rgb(255, 100, 0)])
             .with_radii([0.05]),
     )?;
 
