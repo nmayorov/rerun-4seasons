@@ -163,7 +163,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rec.log_static(
         "metrics/vio_error",
         &rerun::SeriesLines::new().with_names([
-            "horizontal, m",
+            "cross_track, m",
+            "along_track, m",
             "vertical, m",
             "roll, deg",
             "pitch, deg",
@@ -174,15 +175,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let T_world_car = T_world_cam * T_car_cam.inverse();
         let T_world_vio = key_frame.T_world_cam * T_car_cam.inverse();
         let T_car_vio = T_world_car.inverse() * T_world_vio;
-        let horizontal = T_car_vio.translation.x.hypot(T_car_vio.translation.y);
-        let vertical = T_car_vio.translation.z;
         let (roll, pitch, yaw) = T_car_vio.rotation.euler_angles();
         rec.set_timestamp_nanos_since_epoch("global_time", *timestamp);
         rec.log(
             "metrics/vio_error",
             &rerun::Scalars::new([
-                horizontal,
-                vertical,
+                T_car_vio.translation.x,
+                T_car_vio.translation.y,
+                T_car_vio.translation.z,
                 roll.to_degrees(),
                 pitch.to_degrees(),
                 yaw.to_degrees(),
