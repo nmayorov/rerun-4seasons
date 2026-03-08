@@ -10,7 +10,7 @@ You can find a decent description of the dataset in [this repository](https://gi
 Here are some more insights and details how this dataset is used in this visualization:
 
 1. To run the visualization you need to download and unzip the following archives from the [download page](https://cvg.cit.tum.de/data/datasets/4seasons-dataset/download): "Point clouds", "Reference poses", "Stereo images (undistorted)".
-   After unzipping the directory content should look as follows:
+   After unzipping, the directory content should look as follows:
    ```
    .
    ├── GNSSPoses.txt
@@ -27,25 +27,25 @@ Here are some more insights and details how this dataset is used in this visuali
    There are two ways to do that:
       1. Using GT poses -- this will create a globally consistent point cloud with a caveat that provided point depths are not optimized, which can create some inconsistencies.
       2. Using VIO poses -- this will create a point cloud consistent within some time window and also with images and 2D key points on them.
-   The visualization provides both, with VIO cloud displayed in a vicinity of current position.
+   The visualization provides both, with VIO cloud displayed in a vicinity of current a position.
 4. The IMU axes are rotated from the car axes by 180 degrees around the vertical axis. 
-   While the dataset doesn't use or mention the car frame, I do it for the visualization and interpretation purposes by introducing car entity and `car -> IMU -> camera` transform chain.
+   While the dataset doesn't use or mention the car frame, I do it for the visualization and interpretation purposes by introducing the car entity and `car -> IMU -> camera` transform chain.
 
 ## The visualization
 
-The screenshot at the beginning show a rerun window with the open visualization on "office_loop_1_train" sequence.
-There are 4 views:
+The screenshot at the beginning shows a rerun window with the open visualization on "office_loop_1_train" sequence.
+There are 4 view panels:
 
 1. The 3D view showing local point cloud with gradient coloring based on point z-coordinate (height).
    The global point cloud view is available (in constant color), but toggled off for better visual clarity.
 2. The image view with tracked key points with gradient coloring based on point depth.
    The left (cam0) camera images are used for the visualization.
-3. The map view showing a current position and a recent track.
+3. The map view showing a current geographic position and a recent track.
 4. The plot view showing time series of VIO pose errors with respect to ground truth poses.
 
 Some tips and tricks for using the visualization:
 
-1. You can configure rerun viewer as you see fit.
+1. You can configure the Rerun viewer as you see fit.
 2. There is an entity called "observation_point". 
    It is convenient to select it by "Set as eye tracked", zoom in appropriately and observe the surrounding as the vehicle moves.
 3. The blueprint file for the 4-panel view shown above is provided in the repository.
@@ -58,7 +58,7 @@ rustc 1.93.1
 rerun-cli 0.30.1
 ```
 As far as I understand, all dependencies and versions should be handled by `Cargo.toml` and `Cargo.lock`.
-To build, run using cargo and see the result in rerun, execute:
+To build, run using cargo and see the result in Rerun, execute:
 ```bash
 cargo run --release -- /path/to/sequence [result.rrd]
 rerun result.rrd blueprint.rbl
