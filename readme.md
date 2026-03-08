@@ -9,7 +9,7 @@ A Rust CLI program to visualize the [4Seasons](https://cvg.cit.tum.de/data/datas
 You can find a decent description of the dataset in [this repository](https://github.com/pmwenzel/4seasons-dataset).
 Here are some more insights and details how this dataset is used in this visualization:
 
-1. To run the visualization you need to download and unzip the following archives from the download page "IMU", "Point clouds", "Reference poses", "Stereo images (undistorted)".
+1. To run the visualization you need to download and unzip the following archives from the [download page](https://cvg.cit.tum.de/data/datasets/4seasons-dataset/download) "IMU", "Point clouds", "Reference poses", "Stereo images (undistorted)".
    After unzipping the directory content should look as follows:
    ```
    .
