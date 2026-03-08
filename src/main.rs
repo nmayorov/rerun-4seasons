@@ -24,11 +24,11 @@ fn color_range(
     values: impl Iterator<Item = f64>,
     min: f64,
     max: f64,
+    colormap: impl Gradient,
 ) -> impl Iterator<Item = rerun::Color> {
-    let grad = colorgrad::preset::turbo();
     values.map(move |x| {
         let t = (x - min) / (max - min);
-        let [r, g, b, _] = grad.at(t as f32).to_rgba8();
+        let [r, g, b, _] = colormap.at(t as f32).to_rgba8();
         rerun::Color::from_rgb(r, g, b)
     })
 }
@@ -113,6 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 global_point_cloud.iter().map(|point| point.z),
                 -3.0,
                 30.0,
+                colorgrad::preset::turbo(),
             ))
             .with_radii([0.05]),
     )?;
@@ -135,6 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     keyframe.key_points_pixel.iter().map(|pixel| pixel.depth),
                     1.0,
                     50.0,
+                    colorgrad::preset::turbo()
                 )),
         )?;
     }
