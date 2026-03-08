@@ -14,10 +14,7 @@ Here are some more insights and details how this dataset is used in this visuali
    ```
    .
    ├── GNSSPoses.txt
-   ├── imu.txt
    ├── KeyFrameData
-   ├── result.txt
-   ├── septentrio.nmea
    ├── times.txt
    ├── Transformations.txt
    └── undistorted_images
@@ -42,6 +39,7 @@ There are 4 views:
 1. The 3D view showing local point cloud with gradient coloring based on point z-coordinate (height).
    The global point cloud view is available (in constant color), but toggled off for better visual clarity.
 2. The image view with tracked key points with gradient coloring based on point depth.
+   The left (cam0) camera images are used for the visualization.
 3. The map view showing a current position and a recent track.
 4. The plot view showing time series of VIO pose errors with respect to ground truth poses.
 
