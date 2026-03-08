@@ -14,8 +14,9 @@ pub struct CamIntrinsics {
 
 pub struct Transforms {
     pub T_car_imu: nalgebra::Isometry3<f64>,
+    pub T_S_AS: nalgebra::Isometry3<f64>,
     pub T_cam_imu: nalgebra::Isometry3<f64>,
-    pub T_enu_world: nalgebra::Isometry3<f64>,
+    pub T_world_enu: nalgebra::Isometry3<f64>,
     pub T_ecef_enu: nalgebra::Isometry3<f64>,
 }
 
@@ -81,8 +82,9 @@ pub fn read_static_transforms(base_directory: &Path) -> Transforms {
             nalgebra::Vector3::<f64>::zeros().into(),
             nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, std::f64::consts::PI),
         ),
+        T_S_AS: read_transform(&lines, "transform_S_AS"),
         T_cam_imu: read_transform(&lines, "TS_cam_imu"),
-        T_enu_world: read_transform(&lines, "transform_w_gpsw"),
+        T_world_enu: read_transform(&lines, "transform_w_gpsw"),
         T_ecef_enu: read_transform(&lines, "transform_e_gpsw"),
     }
 }
