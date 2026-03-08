@@ -33,6 +33,20 @@ fn color_range(
     })
 }
 
+fn position_to_lat_lon(
+    position_world: &nalgebra::Point3<f64>,
+    scale: f64,
+    static_transforms: &input::Transforms,
+) -> (f64, f64) {
+    let position_ecef = static_transforms.T_ecef_enu
+        * static_transforms.T_world_enu.inverse()
+        * static_transforms.T_S_AS
+        * (scale * position_world);
+    let ecef_point = nav_types::ECEF::new(position_ecef.x, position_ecef.y, position_ecef.z);
+    let lla_point = nav_types::WGS84::from(ecef_point);
+    (lla_point.latitude_degrees(), lla_point.longitude_degrees())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     const GLOBAL_POINT_CLOUD_SUBSAMPLE: usize = 2;
     const LOCAL_POINT_CLOUD_WINDOW: usize = 100;
@@ -83,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "world/gt_trajectory",
         &rerun::Points3D::new(gt_trajectory)
             .with_radii([0.05])
-            .with_colors([rerun::Color::from_rgb(255, 255, 255)]),
+            .with_colors([rerun::Color::WHITE]),
     )?;
 
     let vio_trajectory = key_frames
@@ -96,6 +110,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_radii([0.05])
             .with_colors([rerun::Color::from_rgb(255, 0, 255)]),
     )?;
+
+    let geo_points = gt_poses.iter().map(|&(timestamp, T_world_camp, scale)| {
+        (
+            timestamp,
+            position_to_lat_lon(
+                &T_world_camp.translation.vector.into(),
+                scale,
+                &static_transforms,
+            ),
+        )
+    });
+    for (timestamp, geo_point) in geo_points {
+        rec.set_timestamp_nanos_since_epoch("global_time", timestamp);
+        rec.log(
+            "geo_position",
+            &rerun::GeoPoints::from_lat_lon([geo_point])
+                .with_colors([rerun::Color::from_rgb(255, 60, 0)])
+                .with_radii([rerun::Radius::new_ui_points(12.0)]),
+        )?;
+    }
 
     let global_point_cloud = gt_poses
         .iter()
