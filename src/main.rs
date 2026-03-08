@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_image_plane_distance(2.0),
     )?;
     rec.log_static(
-        "world/car/obs_point",
+        "world/car/observation_point",
         &rerun::Points3D::new([[0.0, -5.0, 3.0]]).with_radii([0.0]),
     )?;
 
