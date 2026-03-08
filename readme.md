@@ -1,4 +1,4 @@
-# rerun_4seasons
+# rerun-4seasons
 
 A Rust CLI program to visualize the [4Seasons](https://cvg.cit.tum.de/data/datasets/4seasons-dataset) SLAM dataset.
 
