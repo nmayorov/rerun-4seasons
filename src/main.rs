@@ -139,7 +139,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     for i in 0..key_frames.len() {
-        let start = i.saturating_sub_signed(LOCAL_POINT_CLOUD_WINDOW as isize / 2);
+        let start = i.saturating_sub(LOCAL_POINT_CLOUD_WINDOW / 2);
         let end = (start + LOCAL_POINT_CLOUD_WINDOW).min(key_frames.len());
         let points = key_frames[start..end]
             .iter()
