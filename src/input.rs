@@ -74,21 +74,22 @@ pub fn read_static_transforms(base_directory: &Path) -> Transforms {
     }
 }
 
-pub fn read_gt_poses(base_directory: &Path) -> Vec<(i64, nalgebra::Isometry3<f64>)> {
+pub fn read_gt_poses(base_directory: &Path) -> Vec<(i64, nalgebra::Isometry3<f64>, f64)> {
     let content = std::fs::read_to_string(base_directory.join("GNSSPoses.txt"))
         .expect("Error reading GNSSPoses.txt file found");
     let lines = content.lines().skip(1);
     let mut result = Vec::new();
     for line in lines {
         let items = line.split(",").collect::<Vec<_>>();
-        if items.len() < 8 {
+        if items.len() < 9 {
             panic!("Error parsing GNSSPoses.txt");
         }
         let timestamp = items[0]
             .parse::<i64>()
             .expect("Error parsing GNSSPoses.txt");
         let transform = parse_transform(&items[1..8]).expect("Error parsing GNSSPoses.txt");
-        result.push((timestamp, transform));
+        let scale = items[8].parse::<f64>().expect("Error parsing GNSSPoses.txt");
+        result.push((timestamp, transform, scale));
     }
     result
 }

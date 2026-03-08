@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let gt_trajectory = gt_poses
         .iter()
-        .map(|(_, isometry)| point_to_rerun(&isometry.translation.vector.into()))
+        .map(|(_, T_world_cam, _)| point_to_rerun(&T_world_cam.translation.vector.into()))
         .collect::<Vec<_>>();
     rec.log_static(
         "world/gt_trajectory",
@@ -100,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let global_point_cloud = gt_poses
         .iter()
         .zip(&key_frames)
-        .flat_map(|((_, T_world_cam), keyframe)| {
+        .flat_map(|((_, T_world_cam, _), keyframe)| {
             keyframe
                 .key_points_cam
                 .iter()
@@ -171,7 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "yaw, deg",
         ]),
     )?;
-    for ((timestamp, T_world_cam), key_frame) in gt_poses.iter().zip(&key_frames) {
+    for ((timestamp, T_world_cam, _), key_frame) in gt_poses.iter().zip(&key_frames) {
         let T_world_car = T_world_cam * T_car_cam.inverse();
         let T_world_vio = key_frame.T_world_cam * T_car_cam.inverse();
         let T_car_vio = T_world_car.inverse() * T_world_vio;
