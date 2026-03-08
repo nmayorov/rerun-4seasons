@@ -45,6 +45,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let static_transforms = input::read_static_transforms(base_directory);
     let gt_poses = input::read_gt_poses(base_directory);
     let key_frames = input::read_keyframes(base_directory);
+
+    if key_frames.len() != gt_poses.len() {
+        panic!("Number of key frames must be the same as the number of poses in GNSSPoses.txt");
+    }
+
     let T_car_cam = static_transforms.T_car_imu * static_transforms.T_cam_imu.inverse();
     let intrinsics = &key_frames
         .first()
@@ -89,16 +94,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_colors([rerun::Color::from_rgb(255, 0, 255)]),
     )?;
 
-    let point_cloud: Vec<_> = key_frames
+    let global_point_cloud = gt_poses
         .iter()
-        .flat_map(|keyframe| keyframe.key_points_world.clone())
+        .zip(&key_frames)
+        .flat_map(|((_, T_world_cam), keyframe)| {
+            keyframe
+                .key_points_cam
+                .iter()
+                .map(move |point| T_world_cam * point)
+        })
         .step_by(15)
-        .collect();
+        .collect::<Vec<_>>();
+
     rec.log_static(
-        "world/point_cloud",
-        &rerun::Points3D::new(point_cloud.iter().map(point_to_rerun))
+        "world/global_point_cloud",
+        &rerun::Points3D::new(global_point_cloud.iter().map(point_to_rerun))
             .with_colors(color_range(
-                point_cloud.iter().map(|point| point.z),
+                global_point_cloud.iter().map(|point| point.z),
                 -3.0,
                 30.0,
             ))

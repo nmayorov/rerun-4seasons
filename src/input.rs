@@ -28,6 +28,7 @@ pub struct KeyFrame {
     pub intrinsics: CamIntrinsics,
     pub T_world_cam: nalgebra::Isometry3<f64>,
     pub key_points_pixel: Vec<Pixel>,
+    pub key_points_cam: Vec<nalgebra::Point3<f64>>,
     pub key_points_world: Vec<nalgebra::Point3<f64>>,
 }
 
@@ -143,12 +144,13 @@ fn read_keyframe_file(path: &Path) -> Option<KeyFrame> {
         parse_transform(&items)?
     };
 
-    let (pixel_coords, points_world) = {
+    let (pixel_coords, points_cam, points_world) = {
         let start = lines
             .iter()
             .position(|line| line == &"# Point Cloud Data : ")?
             + 3;
         let mut pixel_coords = Vec::new();
+        let mut points_cam = Vec::new();
         let mut points_world = Vec::new();
         for &line in lines.get(start..)?.iter().step_by(2) {
             let items = line.split(",").collect::<Vec<_>>();
@@ -164,9 +166,10 @@ fn read_keyframe_file(path: &Path) -> Option<KeyFrame> {
                 (v - intrinsics.cy) * depth / intrinsics.fy,
                 depth,
             );
+            points_cam.push(point_cam);
             points_world.push(T_world_cam * point_cam);
         }
-        (pixel_coords, points_world)
+        (pixel_coords, points_cam, points_world)
     };
 
     Some(KeyFrame {
@@ -174,6 +177,7 @@ fn read_keyframe_file(path: &Path) -> Option<KeyFrame> {
         intrinsics,
         T_world_cam,
         key_points_pixel: pixel_coords,
+        key_points_cam: points_cam,
         key_points_world: points_world,
     })
 }
