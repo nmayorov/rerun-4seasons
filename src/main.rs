@@ -180,7 +180,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         rec.set_timestamp_nanos_since_epoch("global_time", *timestamp);
         rec.log(
             "metrics/vio_error",
-            &rerun::Scalars::new([horizontal, vertical, roll, pitch, yaw]),
+            &rerun::Scalars::new([
+                horizontal,
+                vertical,
+                roll.to_degrees(),
+                pitch.to_degrees(),
+                yaw.to_degrees(),
+            ]),
         )?;
     }
 
