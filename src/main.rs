@@ -111,23 +111,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_colors([rerun::Color::from_rgb(255, 0, 255)]),
     )?;
 
-    let geo_points = gt_poses.iter().map(|&(timestamp, T_world_camp, scale)| {
-        (
-            timestamp,
-            position_to_lat_lon(
-                &T_world_camp.translation.vector.into(),
-                scale,
-                &static_transforms,
-            ),
-        )
-    });
-    for (timestamp, geo_point) in geo_points {
-        rec.set_timestamp_nanos_since_epoch("global_time", timestamp);
+    let geo_points = gt_poses
+        .iter()
+        .map(|&(timestamp, T_world_camp, scale)| {
+            (
+                timestamp,
+                position_to_lat_lon(
+                    &T_world_camp.translation.vector.into(),
+                    scale,
+                    &static_transforms,
+                ),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    for i in 0..geo_points.len() {
+        let from = i.saturating_sub(100);
+        let points = geo_points[from..=i].iter().map(|(_, point)| point);
+        let n = points.len();
+        let radii = (0..n).map(|i| 2.0 + (i as f32) / (n as f32) * 8.0);
+        let grad = colorgrad::preset::cool();
+        let colors = (0..n).map(|i| {
+            let [r, g, b, _] = grad.at(1.0 - (i as f32) / (n as f32)).to_rgba8();
+            rerun::Color::from_rgb(r, g, b)
+        });
+        rec.set_timestamp_nanos_since_epoch("global_time", geo_points[i].0);
         rec.log(
             "geo_position",
-            &rerun::GeoPoints::from_lat_lon([geo_point])
-                .with_colors([rerun::Color::from_rgb(255, 60, 0)])
-                .with_radii([rerun::Radius::new_ui_points(12.0)]),
+            &rerun::GeoPoints::from_lat_lon(points)
+                .with_radii(radii.map(rerun::Radius::new_ui_points))
+                .with_colors(colors),
         )?;
     }
 
