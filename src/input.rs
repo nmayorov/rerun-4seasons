@@ -15,6 +15,8 @@ pub struct CamIntrinsics {
 pub struct Transforms {
     pub T_car_imu: nalgebra::Isometry3<f64>,
     pub T_cam_imu: nalgebra::Isometry3<f64>,
+    pub T_enu_world: nalgebra::Isometry3<f64>,
+    pub T_ecef_enu: nalgebra::Isometry3<f64>,
 }
 
 pub struct Pixel {
@@ -80,6 +82,8 @@ pub fn read_static_transforms(base_directory: &Path) -> Transforms {
             nalgebra::UnitQuaternion::from_euler_angles(0.0, 0.0, std::f64::consts::PI),
         ),
         T_cam_imu: read_transform(&lines, "TS_cam_imu"),
+        T_enu_world: read_transform(&lines, "transform_w_gpsw"),
+        T_ecef_enu: read_transform(&lines, "transform_e_gpsw"),
     }
 }
 
