@@ -34,7 +34,7 @@ fn color_range(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const GLOBAL_POINT_CLOUD_SUBSAMPLE: usize = 10;
+    const GLOBAL_POINT_CLOUD_SUBSAMPLE: usize = 2;
     const LOCAL_POINT_CLOUD_WINDOW: usize = 100;
 
     let args: Vec<String> = env::args().collect();
