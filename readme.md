@@ -27,7 +27,7 @@ Here are some more insights and details how this dataset is used in this visuali
    There are two ways to do that:
       1. Using GT poses -- this will create a globally consistent point cloud with a caveat that provided point depths are not optimized, which can create some inconsistencies.
       2. Using VIO poses -- this will create a point cloud consistent within some time window and also with images and 2D key points on them.
-   The visualization provides both, with VIO cloud displayed in a vicinity of current a position.
+   The visualization provides both, with VIO cloud displayed in a vicinity of a current position.
 4. The IMU axes are rotated from the car axes by 180 degrees around the vertical axis. 
    While the dataset doesn't use or mention the car frame, I do it for the visualization and interpretation purposes by introducing the car entity and `car -> IMU -> camera` transform chain.
 
