@@ -6,6 +6,6 @@ edition = "2024"
 [dependencies]
 rerun = "0.30.1"
 nalgebra = "0.34.1"
-kornia = "0.1.5"
+image = "0.25.10"
 colorgrad = { version = "0.8.0", features = ["preset"] }
 nav-types = "0.5.2"

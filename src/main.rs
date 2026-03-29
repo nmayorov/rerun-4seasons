@@ -242,8 +242,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         rec.log(
             "world/car/cam/image",
             &rerun::Image::from_elements(
-                image.as_slice(),
-                image.size().into(),
+                image.as_raw(),
+                image.dimensions().into(),
                 rerun::ColorModel::L,
             ),
         )?;
