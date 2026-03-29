@@ -5,6 +5,7 @@ mod input;
 
 use colorgrad::Gradient;
 use std::env;
+use std::fs::read_to_string;
 use std::path::Path;
 
 fn isometry_to_rerun(transform: &nalgebra::Isometry3<f64>) -> rerun::Transform3D {
@@ -48,16 +49,20 @@ fn position_to_lat_lon(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const GLOBAL_POINT_CLOUD_SUBSAMPLE: usize = 2;
-    const LOCAL_POINT_CLOUD_WINDOW: usize = 100;
-
     let args: Vec<String> = env::args().collect();
-
+    let config_content =
+        read_to_string(&args.get(1).expect("Pass path to a TOML configuration file"))
+            .expect("Can't read configuration file");
+    let config =
+        toml::from_str::<toml::Value>(&config_content).expect("Can't parse given file as TOML");
     let base_directory = Path::new(
-        args.get(1)
-            .expect("Pass path to a directory with data as the first argument"),
+        config["data_directory"]
+            .as_str()
+            .expect("Can't parse data_directory from config"),
     );
-    let output_path = args.get(2).map(|s| s.as_str()).unwrap_or("result.rrd");
+    let output_path = config["output_path"]
+        .as_str()
+        .expect("Can't parse output_path from config");
 
     let static_transforms = input::read_static_transforms(base_directory);
     let gt_poses = input::read_gt_poses(base_directory);
@@ -144,23 +149,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
     }
 
-    let global_point_cloud = gt_poses
-        .iter()
-        .zip(&key_frames)
-        .flat_map(|((_, T_world_cam, _), keyframe)| {
-            keyframe
-                .key_points_cam
-                .iter()
-                .map(move |point| T_world_cam * point)
-        })
-        .step_by(GLOBAL_POINT_CLOUD_SUBSAMPLE);
+    if config["global_point_cloud"]["enable"].as_bool().unwrap() {
+        let subsample = config["global_point_cloud"]["subsample"]
+            .as_integer()
+            .unwrap() as usize;
+        let global_point_cloud = gt_poses
+            .iter()
+            .zip(&key_frames)
+            .flat_map(|((_, T_world_cam, _), keyframe)| {
+                keyframe
+                    .key_points_cam
+                    .iter()
+                    .map(move |point| T_world_cam * point)
+            })
+            .step_by(subsample);
 
-    rec.log_static(
-        "world/global_point_cloud",
-        &rerun::Points3D::new(global_point_cloud.map(|point| point_to_rerun(&point)))
-            .with_colors([rerun::Color::from_rgb(255, 100, 0)])
-            .with_radii([0.05]),
-    )?;
+        rec.log_static(
+            "world/global_point_cloud",
+            &rerun::Points3D::new(global_point_cloud.map(|point| point_to_rerun(&point)))
+                .with_colors([rerun::Color::from_rgb(255, 100, 0)])
+                .with_radii([0.05]),
+        )?;
+    }
 
     for keyframe in &key_frames {
         rec.set_timestamp_nanos_since_epoch("global_time", keyframe.timestamp);
@@ -185,26 +195,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
     }
 
-    for i in 0..key_frames.len() {
-        let start = i.saturating_sub(LOCAL_POINT_CLOUD_WINDOW / 2);
-        let end = (start + LOCAL_POINT_CLOUD_WINDOW).min(key_frames.len());
-        let points = key_frames[start..end]
-            .iter()
-            .map(|keyframe| keyframe.key_points_world.iter())
-            .flatten();
+    if config["local_point_cloud"]["enable"].as_bool().unwrap() {
+        let window = config["local_point_cloud"]["frame_count_window"]
+            .as_integer()
+            .unwrap() as usize;
+        for i in 0..key_frames.len() {
+            let start = i.saturating_sub(window / 4);
+            let end = (start + 3 * window / 4).min(key_frames.len());
+            let points = key_frames[start..end]
+                .iter()
+                .map(|keyframe| keyframe.key_points_world.iter())
+                .flatten();
 
-        rec.set_timestamp_nanos_since_epoch("global_time", key_frames[i].timestamp);
-        rec.log(
-            "world/local_point_cloud",
-            &rerun::Points3D::new(points.clone().map(point_to_rerun))
-                .with_colors(color_range(
-                    points.map(|point| point.z),
-                    -3.0,
-                    30.0,
-                    colorgrad::preset::cool(),
-                ))
-                .with_radii([0.05]),
-        )?;
+            rec.set_timestamp_nanos_since_epoch("global_time", key_frames[i].timestamp);
+            rec.log(
+                "world/local_point_cloud",
+                &rerun::Points3D::new(points.clone().map(point_to_rerun))
+                    .with_colors(color_range(
+                        points.map(|point| point.z),
+                        -3.0,
+                        30.0,
+                        colorgrad::preset::cool(),
+                    ))
+                    .with_radii([0.05]),
+            )?;
+        }
     }
 
     rec.log_static(
@@ -237,16 +252,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )?;
     }
 
-    for (timestamp, image) in input::read_images(base_directory) {
-        rec.set_timestamp_nanos_since_epoch("global_time", timestamp);
-        rec.log(
-            "world/car/cam/image",
-            &rerun::Image::from_elements(
-                image.as_raw(),
-                image.dimensions().into(),
-                rerun::ColorModel::L,
-            ),
-        )?;
+    if config["video"]["enable"].as_bool().unwrap() {
+        let fps = config["video"]["fps"].as_integer().unwrap();
+        let step = 1_000_000_000 / fps;
+
+        let mut previous_timestamp = None;
+        for (timestamp, image) in input::read_images(base_directory) {
+            let log = if let Some(previous_timestamp) = previous_timestamp {
+                timestamp >= previous_timestamp + step
+            } else {
+                true
+            };
+            if log {
+                rec.set_timestamp_nanos_since_epoch("global_time", timestamp);
+                rec.log(
+                    "world/car/cam/image",
+                    &rerun::Image::from_elements(
+                        image.as_raw(),
+                        image.dimensions().into(),
+                        rerun::ColorModel::L,
+                    ),
+                )?;
+                previous_timestamp = Some(timestamp);
+            }
+        }
     }
 
     Ok(())

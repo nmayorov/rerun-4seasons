@@ -49,6 +49,8 @@ Some tips and tricks for using the visualization:
 2. There is an entity called "observation_point". 
    It is convenient to select it by "Set as eye tracked", zoom in appropriately and observe the surrounding as the vehicle moves.
 3. The blueprint file for the 4-panel view shown above is provided in the repository.
+4. You can adjust visualization parameters via TOML configuration file, it can be especially useful in order to reduce the output size.
+   See `config_example.toml` for the configuration format.
 
 ## Build and run
 
@@ -58,10 +60,11 @@ rustc 1.93.1
 rerun-cli 0.30.1
 ```
 As far as I understand, all dependencies and versions should be handled by `Cargo.toml` and `Cargo.lock`.
-To build, run using cargo and see the result in Rerun, execute:
+
+To run, first create a TOML configuration file based on provided `config_example.toml` and then execute:
 ```bash
-cargo run --release -- /path/to/sequence [result.rrd]
-rerun result.rrd blueprint.rbl
+cargo run --release -- config.toml
+rerun path_to_output.rrd blueprint.rbl
 ```
 
 ## Acknowledgements

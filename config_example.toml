@@ -1,0 +1,14 @@
+data_directory = ""  # fill with a path to the data
+output_path = "" # fill with a desired path for the output rrd file
+
+[global_point_cloud]
+enable = true
+subsample = 2
+
+[local_point_cloud]
+enable = true
+frame_count_window = 100
+
+[video]
+enable = true
+fps = 30

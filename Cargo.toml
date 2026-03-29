@@ -9,3 +9,4 @@ nalgebra = "0.34.1"
 image = "0.25.10"
 colorgrad = { version = "0.8.0", features = ["preset"] }
 nav-types = "0.5.2"
+toml = "0.9.8"

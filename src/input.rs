@@ -198,13 +198,20 @@ fn read_keyframe_file(path: &Path) -> Option<KeyFrame> {
     })
 }
 
-pub fn read_images(
-    base_directory: &Path,
-) -> impl Iterator<Item = (i64, image::GrayImage)> {
-    let items = std::fs::read_dir(base_directory.join("undistorted_images").join("cam0"))
+pub fn read_images(base_directory: &Path) -> impl Iterator<Item = (i64, image::GrayImage)> {
+    let entries = std::fs::read_dir(base_directory.join("undistorted_images").join("cam0"))
         .expect("Can't read undistorted_images/cam0 directory");
-    items.filter_map(|entry| {
-        let path = entry.ok()?.path();
+    let mut paths = entries
+        .filter_map(|entry| {
+            if let Some(entry) = entry.ok() {
+                Some(entry.path())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+    paths.sort();
+    paths.into_iter().filter_map(|path| {
         let timestamp = path.file_stem()?.to_str()?.parse::<i64>().ok()?;
         let img = image::open(path).unwrap().to_luma8();
         Some((timestamp, img))
